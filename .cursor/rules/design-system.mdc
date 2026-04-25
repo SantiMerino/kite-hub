@@ -1,0 +1,115 @@
+---
+description: Kite Hub — tokens, colores por dominio (préstamos, inventario, alertas, admin) y convenciones UI alineadas a la plantilla Grow Hub
+alwaysApply: true
+---
+
+# Sistema de diseño — Kite Hub
+
+**Kite Hub** gestiona préstamos y devoluciones de herramientas en laboratorio, inventario, sanciones, alertas y auditoría. La UI replica la **identidad visual y el stack de componentes** de la plantilla **Grow Hub** (Next.js App Router, shadcn/ui): misma capa de tokens, tipografía y patrones de layout; el **contenido y los roles** son del dominio laboratorio, no de marketing ni KPIs comerciales.
+
+Este proyecto usa **shadcn/ui** variante **new-york**, **baseColor: neutral**, **CSS variables** en Tailwind v4. La fuente de verdad de color y radio está en `src/app/globals.css`. Los componentes primitivos viven en `src/components/ui/` y siguen el patrón **CVA + `cn()`** (`class-variance-authority`, `clsx`, `tailwind-merge`).
+
+Al portar tokens desde Grow Hub, copia **la misma capa `:root` / `.dark` y el bloque `@theme inline`** de `globals.css`, mantén **Geist** como sans, **lucide-react** para iconos, y respeta la paleta semántica y la tabla de dominio Kite abajo. No introduzcas nuevos colores de marca fuera de esta tabla sin actualizar esta regla.
+
+---
+
+## Tipografía
+
+- **Sans:** Geist (`next/font/google`, variable `--font-geist-sans` en `layout.tsx`). Cuerpo: `antialiased`.
+- **Mono:** el tema declara `--font-mono: var(--font-geist-mono)` en `@theme inline`; si necesitas mono, carga Geist Mono o alinea la variable.
+
+---
+
+## Radio y bordes
+
+- **Radio base:** `--radius: 0.625rem` (10px). Tokens Tailwind: `rounded-sm` → `calc(radius - 4px)`, `rounded-md` → `-2px`, `rounded-lg` → `--radius`, `rounded-xl` → `+4px`.
+- **Bordes por defecto:** en `@layer base`, `* { border-border }`. Inputs y foco usan `ring` / `border-ring` según componentes shadcn.
+
+---
+
+## Modo oscuro
+
+- Selector: clase **`.dark`** en un ancestro (patrón shadcn / `next-themes` si aplica). Variante Tailwind: `@custom-variant dark (&:is(.dark *));`
+
+---
+
+## Paleta semántica (obligatoria para UI general)
+
+Usar **solo** estas utilidades Tailwind mapeadas a variables (no hardcodear grises arbitrarios en pantallas nuevas salvo excepciones listadas más abajo):
+
+| Token | Uso |
+|-------|-----|
+| `background` / `foreground` | Fondo de página y texto principal |
+| `card` / `card-foreground` | Superficies tipo tarjeta |
+| `popover` / `popover-foreground` | Dropdowns, popovers |
+| `primary` / `primary-foreground` | Acción principal (escala neutra; no es “color de marca” del lab) |
+| `secondary` / `secondary-foreground` | Acción secundaria |
+| `muted` / `muted-foreground` | Fondos suaves y texto secundario |
+| `accent` / `accent-foreground` | Hover/resalte sutil. **No** sustituye al color de dominio. |
+| `destructive` | Eliminar, error, sanción crítica (rojo OKLCH en `:root` / `.dark`) |
+| `border`, `input`, `ring` | Contornos, campos, foco |
+| `sidebar` y `sidebar-*` | Barra lateral (navegación por área del lab) |
+| `chart-1` … `chart-5` | Series en gráficos (Recharts + `ChartContainer` en `chart.tsx`) |
+
+Valores exactos: **OKLCH** en `globals.css` en `:root` y `.dark`. Al portar desde Grow Hub, copia los bloques completos.
+
+---
+
+## Gráficos
+
+- Series con `chart-1` … `chart-5` o `theme: { light, dark }` según `src/components/ui/chart.tsx`.
+- Ejes y grillas: `muted-foreground`, `border`, `muted` como en el contenedor del chart.
+- Ejemplos Kite: préstamos activos vs devueltos, herramientas más solicitadas, atrasos por semana.
+
+---
+
+## Colores de dominio (Kite Hub)
+
+Codifica **flujos del laboratorio** con la paleta **Tailwind estándar** (light: `-50/-100/-200` fondos/bordes, `-600/-700` texto; `-500`/`-600` en avatares o indicadores):
+
+| Dominio | Uso en producto | Familia Tailwind |
+|---------|-----------------|------------------|
+| Préstamos / estudiante | Flujo de préstamo y devolución en estante, carné, QR | `blue` (ej. `text-blue-600`, `bg-blue-50`, `border-blue-200`) |
+| Inventario / herramientas | Catálogo, disponibilidad, ubicación en estantes | `emerald` |
+| Alertas / sanciones | Atrasos, proximidad al vencimiento, bloqueo de préstamo | `purple` |
+| Encargado / administración | Panel admin, CRUD herramientas, reglas, auditoría | `violet` |
+
+**Referencia de implementación:** enlaces del sidebar y badges de rol en topbar (equivalente a `Sidebar.tsx` / `TopBar.tsx` de la plantilla). Usa **`ROLE_CONFIG`** o similar con estas cuatro familias; al añadir un área nueva, asigna **una familia distinta** y actualiza esta tabla.
+
+---
+
+## Excepciones locales (heredadas de la plantilla)
+
+- **Carga de sesión** (`AppShell`): puede usar `bg-slate-50`, spinner `border-blue-600`, texto `text-slate-400`; al unificar, preferir `bg-muted` / `text-muted-foreground` y anillo acorde a `primary`.
+- **Sidebar:** `bg-white` y hovers `hover:bg-slate-50` en enlaces; convive con `border-border`.
+- **Toaster (Sileo)** en `layout.tsx`: `fill` y descripción alineados al `primary` del tema claro si ajustas tokens.
+
+---
+
+## Componentes y estructura
+
+- **UI:** `src/components/ui/*` (Radix + shadcn). Nuevos controles: slots, `data-slot`, foco con `ring`/`border-ring`, invalid con `destructive`.
+- **Composición:** `cn()`; variantes con `cva`.
+- **Iconos:** `lucide-react` salvo requisito externo.
+- **Animaciones:** `globals.css` — `animate-fade-in`, `animate-slide-up`, `animate-slide-down`, `animate-scale-in`, `.stagger`, `.skeleton`.
+- **Microinteracción:** botones `active:scale-[0.97]`; inputs con transición de borde/sombra en foco.
+
+---
+
+## Reglas para no romper la identidad
+
+1. No sustituir tokens semánticos por hex/RGB en features nuevas; para dominio, solo **blue / emerald / purple / violet** de la tabla Kite.
+2. UI base **neutral**; color expresivo en **charts** (`chart-*`) o en **dominio** (préstamo, inventario, alertas, admin).
+3. **Dark mode:** probar contraste en `.dark` para flujos de estante y lectura de QR.
+4. **Charts:** máximo cinco series por convención; más series implica ampliar tokens y esta regla.
+5. **Dependencias UI:** Tailwind 4, `@tailwindcss/postcss`, `tw-animate-css`, Radix, `class-variance-authority`, `tailwind-merge`, `lucide-react`, `recharts` — ver `package.json`.
+
+---
+
+## Checklist al inicializar el repo
+
+- [ ] `globals.css`: `@import "tailwindcss"`, `@import "tw-animate-css"`, `@theme inline`, `:root`, `.dark`, `@layer base`, animaciones y utilidades custom.
+- [ ] `components.json` (style `new-york`, `baseColor` `neutral`, `cssVariables` true).
+- [ ] Geist + `antialiased` en layout raíz.
+- [ ] `src/components/ui` y `lib/utils.ts` (`cn`).
+- [ ] Sidebar/topbar con rutas Kite (préstamos, inventario, alertas, admin) y colores de dominio anteriores.
