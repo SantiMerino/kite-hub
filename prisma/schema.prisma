@@ -1,0 +1,243 @@
+// Kite Hub — Prisma schema targeting SQL Server 2022
+// Note: Prisma's sqlserver provider does not support native enums.
+// All enum-like fields use String with Zod validation in the application layer.
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+// role: "student" | "staff" | "admin"
+
+model User {
+  id           Int      @id @default(autoincrement())
+  /// Auth0 subject (auth0|xxxx) — stable cross-login identity for staff/admin
+  auth0Sub     String?  @unique @db.NVarChar(128)
+  /// Carné de estudiante — KEY_000000 format for kiosk flow
+  cardKey      String?  @unique @db.NVarChar(20)
+  name         String?  @db.NVarChar(255)
+  email        String?  @db.NVarChar(320)
+  /// "student" | "staff" | "admin"
+  role         String   @default("student") @db.NVarChar(20)
+  isBanned     Boolean  @default(false)
+  banReason    String?  @db.NVarChar(500)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastSignedIn DateTime?
+
+  loans              Loan[]              @relation("StudentLoans")
+  sanctions          Sanction[]          @relation("StudentSanctions")
+  alerts             Alert[]             @relation("StudentAlerts")
+  auditActions       AuditLog[]          @relation("ActorAuditLogs")
+  staffNotifications StaffNotification[]
+  emailOutboxes      EmailOutbox[]
+
+  @@index([cardKey])
+  @@index([auth0Sub])
+  @@index([role])
+  @@map("users")
+}
+
+// ─── Tools ────────────────────────────────────────────────────────────────────
+// condition: "excellent" | "good" | "fair" | "poor"
+
+model Tool {
+  id          Int    @id @default(autoincrement())
+  /// Human-readable code scanned via QR, e.g. MAR_001
+  toolId      String @unique @db.NVarChar(50)
+  name        String @db.NVarChar(255)
+  description String? @db.NVarChar(Max)
+  category    String @db.NVarChar(100)
+  /// "excellent" | "good" | "fair" | "poor"
+  condition   String @default("good") @db.NVarChar(20)
+  location    String @db.NVarChar(255)
+  qrCode      String? @db.NVarChar(500)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inventory Inventory?
+  loans     Loan[]
+  auditLogs AuditLog[]
+
+  @@index([toolId])
+  @@map("tools")
+}
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+// status: "available" | "borrowed" | "maintenance" | "lost"
+
+model Inventory {
+  id                  Int    @id @default(autoincrement())
+  toolId              Int    @unique
+  tool                Tool   @relation(fields: [toolId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  totalQuantity       Int    @default(1)
+  availableQuantity   Int    @default(1)
+  borrowedQuantity    Int    @default(0)
+  maintenanceQuantity Int    @default(0)
+  lostQuantity        Int    @default(0)
+  /// "available" | "borrowed" | "maintenance" | "lost"
+  status              String @default("available") @db.NVarChar(20)
+  lastUpdated         DateTime @updatedAt
+
+  @@map("inventory")
+}
+
+// ─── Loans ────────────────────────────────────────────────────────────────────
+// status: "active" | "returned" | "overdue" | "lost"
+// conditionOnBorrow / conditionOnReturn: "excellent" | "good" | "fair" | "poor"
+
+model Loan {
+  id                 Int      @id @default(autoincrement())
+  toolId             Int
+  studentId          Int
+  tool               Tool     @relation(fields: [toolId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  student            User     @relation("StudentLoans", fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  borrowDate         DateTime
+  expectedReturnDate DateTime
+  actualReturnDate   DateTime?
+  /// "active" | "returned" | "overdue" | "lost"
+  status             String   @default("active") @db.NVarChar(20)
+  conditionOnBorrow  String   @default("good") @db.NVarChar(20)
+  conditionOnReturn  String?  @db.NVarChar(20)
+  notes              String?  @db.NVarChar(Max)
+  /// Idempotency key from kiosk request header
+  idempotencyKey     String?  @unique @db.NVarChar(100)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sanctions Sanction[]
+  alerts    Alert[]
+
+  @@index([toolId, status])
+  @@index([studentId, status])
+  @@index([expectedReturnDate, status])
+  @@map("loans")
+}
+
+// ─── Sanctions ────────────────────────────────────────────────────────────────
+// sanctionType: "overdue" | "damage" | "loss" | "other"
+// status: "active" | "resolved" | "appealed"
+
+model Sanction {
+  id           Int      @id @default(autoincrement())
+  studentId    Int
+  loanId       Int?
+  student      User     @relation("StudentSanctions", fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  loan         Loan?    @relation(fields: [loanId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  /// "overdue" | "damage" | "loss" | "other"
+  sanctionType String   @db.NVarChar(20)
+  daysOverdue  Int      @default(0)
+  description  String?  @db.NVarChar(Max)
+  /// "active" | "resolved" | "appealed"
+  status       String   @default("active") @db.NVarChar(20)
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([studentId, status])
+  @@map("sanctions")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  action     String   @db.NVarChar(100)
+  entityType String   @db.NVarChar(50)
+  entityId   Int?
+  userId     Int?
+  toolId     Int?
+  actor      User?    @relation("ActorAuditLogs", fields: [userId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  tool       Tool?    @relation(fields: [toolId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  /// JSON string with change details
+  details    String?  @db.NVarChar(Max)
+  timestamp  DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([toolId])
+  @@map("audit_log")
+}
+
+// ─── Alerts ───────────────────────────────────────────────────────────────────
+// alertType: "overdue" | "approaching_deadline" | "damage_report" | "loss_report"
+// status: "pending" | "acknowledged" | "resolved"
+
+model Alert {
+  id             Int      @id @default(autoincrement())
+  loanId         Int
+  studentId      Int
+  loan           Loan     @relation(fields: [loanId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  student        User     @relation("StudentAlerts", fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  /// "overdue" | "approaching_deadline" | "damage_report" | "loss_report"
+  alertType      String   @db.NVarChar(40)
+  daysOverdue    Int      @default(0)
+  /// "pending" | "acknowledged" | "resolved"
+  status         String   @default("pending") @db.NVarChar(20)
+  createdAt      DateTime @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  @@index([status, alertType])
+  @@map("alerts")
+}
+
+// ─── Staff Notifications (in-app) ─────────────────────────────────────────────
+// status: "unread" | "read"
+
+model StaffNotification {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  user     User     @relation(fields: [userId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  title    String   @db.NVarChar(255)
+  body     String   @db.NVarChar(Max)
+  linkHref String?  @db.NVarChar(500)
+  /// "unread" | "read"
+  status   String   @default("unread") @db.NVarChar(10)
+  createdAt DateTime @default(now())
+  readAt   DateTime?
+
+  @@index([userId, status])
+  @@map("staff_notifications")
+}
+
+// ─── Email Outbox ─────────────────────────────────────────────────────────────
+// status: "pending" | "sent" | "failed"
+
+model EmailOutbox {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  toEmail     String   @db.NVarChar(320)
+  subject     String   @db.NVarChar(500)
+  htmlBody    String   @db.NVarChar(Max)
+  /// "pending" | "sent" | "failed"
+  status      String   @default("pending") @db.NVarChar(10)
+  attempts    Int      @default(0)
+  lastError   String?  @db.NVarChar(Max)
+  scheduledAt DateTime @default(now())
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([status, scheduledAt])
+  @@map("email_outbox")
+}
+
+// ─── Loan Rules ───────────────────────────────────────────────────────────────
+
+model LoanRule {
+  id                  Int      @id @default(autoincrement())
+  minDays             Int
+  maxDays             Int?
+  sanctionDescription String   @db.NVarChar(255)
+  canBorrow           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("loan_rules")
+}

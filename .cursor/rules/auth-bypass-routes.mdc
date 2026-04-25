@@ -1,0 +1,80 @@
+# Auth bypass & route protection — Kite Hub
+
+Whenever you create or modify a **page, layout, or API route handler** in this project, apply this checklist **before finishing**.
+
+---
+
+## 1. Classify the route
+
+| Route type | Examples | Required protection |
+|---|---|---|
+| Public | `/kiosk`, `/api/kiosk/*`, `/api/jobs/*` | None (or own secret header) |
+| Admin UI | `/admin/*` | `getAuthUser()` + role guard in layout |
+| Admin API | `/api/admin/*` | `requireRole(["staff","admin"])` in handler |
+
+---
+
+## 2. Adding a new admin UI page
+
+New admin pages **must** go under `src/app/admin/` — not under `src/app/(admin)/` (the route group used as source-of-truth pages). The `admin/` layout at `src/app/admin/layout.tsx` already provides session + role enforcement. You only need to create the page file; no extra auth code is required inside the page itself.
+
+```
+src/app/admin/
+  layout.tsx          ← session + role guard (staff | admin)
+  dashboard/page.tsx
+  <new-section>/page.tsx   ← add here
+```
+
+Add the new link to `src/components/layout/Sidebar.tsx` using the `/admin/<new-section>` href so navigation stays consistent.
+
+---
+
+## 3. Adding a new admin API route
+
+Every Route Handler under `src/app/api/admin/` must call `requireRole` as its **first** async step:
+
+```ts
+// src/app/api/admin/<resource>/route.ts
+import { requireRole } from "@/lib/auth";
+
+export async function GET() {
+  try {
+    const actor = await requireRole(["staff", "admin"]);
+    // ... handler logic using actor
+  } catch (err) {
+    return err as Response; // requireRole throws a NextResponse on failure
+  }
+}
+```
+
+Use `requireRole(["admin"])` for destructive or sensitive operations (DELETE, ban, etc.).
+
+---
+
+## 4. Dev auth bypass rules
+
+- Bypass logic lives **only** in `src/lib/dev-bypass.ts`, `src/lib/auth0.ts`, and `src/lib/auth.ts`.
+- **Never** add ad-hoc bypass logic (e.g., `if (process.env.NODE_ENV === "development") skip...`) inside pages or route handlers.
+- `isDevAuthBypassEnabled()` already throws if `DEV_AUTH_BYPASS=true` outside `development`. Do not suppress or work around this.
+- Do **not** import `dev-bypass.ts` in new client components.
+
+---
+
+## 5. Canonical URL convention
+
+All admin routes use the `/admin/` prefix. No admin page should live at a top-level path like `/dashboard` without a redirect to `/admin/dashboard`.
+
+- Sidebar hrefs: `/admin/<section>`
+- Login `returnTo`: `/admin/dashboard`
+- Post-login redirect in `src/app/page.tsx`: `/admin/dashboard`
+
+---
+
+## 6. Pre-release checklist (bypass removal)
+
+Before deploying to production, verify:
+
+- [ ] `DEV_AUTH_BYPASS` is **not** set in the production environment.
+- [ ] `npm run check:no-bypass-prod` passes with exit code 0.
+- [ ] Real Auth0 credentials (`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_BASE_URL`, `AUTH0_SECRET`) are configured.
+- [ ] Login flow tested end-to-end with a real Auth0 user.

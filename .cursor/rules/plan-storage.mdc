@@ -1,0 +1,18 @@
+---
+description: Instructs the agent to always store plans as markdown files in .cursor/plan/
+alwaysApply: true
+---
+
+# Plan Storage Convention
+
+Whenever you create, refine, or update a plan in this project:
+
+1. **Save it as a `.md` file** inside `.cursor/plan/` using a kebab-case filename that reflects the plan topic (e.g. `auth-bypass-dev-setup.md`, `schema-migration-v2.md`).
+2. **Update the existing file** rather than creating a new one when you are iterating on the same plan. Only create a new file for a distinct, unrelated plan.
+3. **Structure** every plan file with at least:
+   - A top-level `# Title` heading
+   - A brief `## Scope` or `## Overview` section
+   - Numbered or sectioned steps with specific file paths cited
+   - A `## File change summary` table at the bottom listing each file and its action (Create / Modify / Delete)
+4. **Never store plans** in the project root, `docs/`, or any other directory — always `.cursor/plan/`.
+5. After completing implementation, mark finished items with ✅ inside the plan file so the history stays useful.

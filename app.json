@@ -1,0 +1,60 @@
+{
+  "name": "kite-hub",
+  "description": "Sistema de préstamo de herramientas de laboratorio",
+  "repository": "https://github.com/your-org/kite-hub",
+  "keywords": ["next.js", "prisma", "auth0", "mssql"],
+  "env": {
+    "DATABASE_URL": {
+      "description": "SQL Server connection string (sqlserver://HOST:1433;database=kite_hub;user=SA;password=...;encrypt=true)",
+      "required": true
+    },
+    "AUTH0_SECRET": {
+      "description": "Random 32-byte hex string for session encryption",
+      "generator": "secret",
+      "required": true
+    },
+    "AUTH0_BASE_URL": {
+      "description": "Your Heroku app URL, e.g. https://your-app.herokuapp.com",
+      "required": true
+    },
+    "AUTH0_DOMAIN": {
+      "description": "Auth0 domain, e.g. YOUR_DOMAIN.auth0.com (without https://)",
+      "required": true
+    },
+    "AUTH0_CLIENT_ID": {
+      "description": "Auth0 application client ID",
+      "required": true
+    },
+    "AUTH0_CLIENT_SECRET": {
+      "description": "Auth0 application client secret",
+      "required": true
+    },
+    "KIOSK_SECRET": {
+      "description": "Secret key for kiosk API authentication",
+      "generator": "secret",
+      "required": true
+    },
+    "CRON_SECRET": {
+      "description": "Secret key for job endpoint authorization",
+      "generator": "secret",
+      "required": true
+    },
+    "RESEND_API_KEY": {
+      "description": "Resend API key for transactional emails",
+      "required": true
+    },
+    "RESEND_FROM": {
+      "description": "From address for emails, e.g. Kite Hub <noreply@yourdomain.com>",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    { "url": "heroku/nodejs" }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
