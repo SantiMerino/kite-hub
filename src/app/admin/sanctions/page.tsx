@@ -1,1 +1,1 @@
-export { default } from "@/components/features/sanctions/pages/SanctionsAdminPage";
+export { default } from "@admin/sanctions/SanctionsAdminPage";
