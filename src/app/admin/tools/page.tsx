@@ -1,1 +1,1 @@
-export { default } from "@/components/features/tools/pages/ToolsAdminPage";
+export { default } from "@admin/tools/ToolsAdminPage";
