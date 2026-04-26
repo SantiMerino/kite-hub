@@ -1,1 +1,1 @@
-export { default } from "@/components/features/analytics/pages/MetricsAdminPage";
+export { default } from "@admin/analytics/metrics/MetricsAdminPage";

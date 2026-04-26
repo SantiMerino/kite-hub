@@ -22,6 +22,9 @@
       }
     ],
     "paths": {
+      "@admin/*": [
+        "./src/components/admin/*"
+      ],
       "@/*": [
         "./src/*"
       ]

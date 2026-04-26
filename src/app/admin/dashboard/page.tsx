@@ -1,1 +1,1 @@
-export { default } from "@/components/features/analytics/pages/DashboardAdminPage";
+export { default } from "@admin/analytics/dashboard/DashboardAdminPage";
