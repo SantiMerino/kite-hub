@@ -51,12 +51,16 @@ model Tool {
   id          Int    @id @default(autoincrement())
   /// Human-readable code scanned via QR, e.g. MAR_001
   toolId      String @unique @db.NVarChar(50)
+  /// Prefix section for toolId, e.g. MAR
+  prefix      String @db.NVarChar(10)
   name        String @db.NVarChar(255)
   description String? @db.NVarChar(Max)
   category    String @db.NVarChar(100)
   /// "excellent" | "good" | "fair" | "poor"
   condition   String @default("good") @db.NVarChar(20)
   location    String @db.NVarChar(255)
+  /// If true, loan must be approved by staff/admin first
+  requiresApproval Boolean @default(false)
   qrCode      String? @db.NVarChar(500)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -66,6 +70,7 @@ model Tool {
   auditLogs AuditLog[]
 
   @@index([toolId])
+  @@index([prefix])
   @@map("tools")
 }
 
@@ -101,7 +106,7 @@ model Loan {
   borrowDate         DateTime
   expectedReturnDate DateTime
   actualReturnDate   DateTime?
-  /// "active" | "returned" | "overdue" | "lost"
+  /// "requested" | "denied" | "cancelled" | "active" | "returned" | "overdue" | "lost"
   status             String   @default("active") @db.NVarChar(20)
   conditionOnBorrow  String   @default("good") @db.NVarChar(20)
   conditionOnReturn  String?  @db.NVarChar(20)
@@ -134,12 +139,17 @@ model Sanction {
   sanctionType String   @db.NVarChar(20)
   daysOverdue  Int      @default(0)
   description  String?  @db.NVarChar(Max)
+  startsAt     DateTime @default(now())
+  endsAt       DateTime?
+  isPermanent  Boolean  @default(false)
+  appealMessage String? @db.NVarChar(500)
   /// "active" | "resolved" | "appealed"
   status       String   @default("active") @db.NVarChar(20)
   createdAt    DateTime @default(now())
   resolvedAt   DateTime?
 
   @@index([studentId, status])
+  @@index([studentId, status, startsAt, endsAt])
   @@map("sanctions")
 }
 
@@ -226,6 +236,35 @@ model EmailOutbox {
 
   @@index([status, scheduledAt])
   @@map("email_outbox")
+}
+
+// ─── Tool Categories ──────────────────────────────────────────────────────────
+
+model ToolCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.NVarChar(100)
+  description String?  @db.NVarChar(500)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tool_categories")
+}
+
+// ─── Tool Locations ───────────────────────────────────────────────────────────
+// locationType: "estante" | "gaveta"
+// area: parent furniture unit, e.g. "Mueble A"
+// name: full display label, e.g. "Estante A-1"
+
+model ToolLocation {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique @db.NVarChar(100)
+  locationType String   @default("estante") @db.NVarChar(20)
+  area         String   @db.NVarChar(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([area])
+  @@map("tool_locations")
 }
 
 // ─── Loan Rules ───────────────────────────────────────────────────────────────

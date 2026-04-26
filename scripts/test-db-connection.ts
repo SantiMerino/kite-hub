@@ -35,6 +35,8 @@ function maskDatabaseUrl(url: string): string {
   return url.replace(/(password=)([^;]+)/i, "$1***");
 }
 
+const REQUIRED_TABLES = ["users", "tools", "loans", "alerts"] as const;
+
 loadDotEnv([".env.local", ".env"]);
 
 const url = process.env.DATABASE_URL;
@@ -61,13 +63,38 @@ const prisma = new PrismaClient({ log: [] });
 
 async function main() {
   await prisma.$connect();
+  const dbCtx = await prisma.$queryRaw<
+    Array<{ db: string; server: string }>
+  >`SELECT DB_NAME() AS db, @@SERVERNAME AS server`;
+  const currentDb = dbCtx[0]?.db ?? "(unknown-db)";
+  const currentServer = dbCtx[0]?.server ?? "(unknown-server)";
+
   const rows = await prisma.$queryRaw<Array<{ ok: number }>>`SELECT 1 AS ok`;
   const ok = rows[0]?.ok === 1;
   if (!ok) {
     console.error("Respuesta inesperada:", rows);
     process.exit(1);
   }
-  console.log("Conexión correcta (SELECT 1).");
+
+  const existingTables = await prisma.$queryRaw<Array<{ name: string }>>`
+    SELECT name
+    FROM sys.tables
+    WHERE name IN ('users', 'tools', 'loans', 'alerts')
+  `;
+  const existingNames = new Set(existingTables.map((t) => t.name.toLowerCase()));
+  const missing = REQUIRED_TABLES.filter((name) => !existingNames.has(name));
+  if (missing.length > 0) {
+    console.error(
+      `Conexión SQL OK pero esquema incompleto en ${currentServer}/${currentDb}.`,
+    );
+    console.error(`Faltan tablas: ${missing.join(", ")}.`);
+    console.error(
+      "Sugerencia: ejecuta `npx prisma db push --schema prisma/schema.prisma` con DATABASE_URL cargada.",
+    );
+    process.exit(1);
+  }
+
+  console.log(`Conexión y esquema correctos en ${currentServer}/${currentDb}.`);
   await prisma.$disconnect();
 }
 

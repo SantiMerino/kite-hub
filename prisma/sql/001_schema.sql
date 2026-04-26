@@ -42,11 +42,13 @@ BEGIN
   CREATE TABLE tools (
     id          INT            IDENTITY(1,1) NOT NULL,
     toolId      NVARCHAR(50)   NOT NULL,
+    prefix      NVARCHAR(10)   NOT NULL,
     name        NVARCHAR(255)  NOT NULL,
     description NVARCHAR(MAX)  NULL,
     category    NVARCHAR(100)  NOT NULL,
     condition   NVARCHAR(20)   NOT NULL CONSTRAINT DF_tools_condition DEFAULT 'good',
     location    NVARCHAR(255)  NOT NULL,
+    requiresApproval BIT       NOT NULL CONSTRAINT DF_tools_requiresApproval DEFAULT 0,
     qrCode      NVARCHAR(500)  NULL,
     createdAt   DATETIME2      NOT NULL CONSTRAINT DF_tools_createdAt DEFAULT SYSUTCDATETIME(),
     updatedAt   DATETIME2      NOT NULL CONSTRAINT DF_tools_updatedAt DEFAULT SYSUTCDATETIME(),
@@ -56,6 +58,7 @@ BEGIN
   );
 
   CREATE INDEX IX_tools_toolId ON tools (toolId);
+  CREATE INDEX IX_tools_prefix ON tools (prefix);
 END
 GO
 
@@ -95,12 +98,12 @@ BEGIN
     conditionOnReturn  NVARCHAR(20)   NULL,
     notes              NVARCHAR(MAX)  NULL,
     idempotencyKey     NVARCHAR(100)  NULL,
-    createdAt          DATETIME2      NOT NULL CONSTRAINT DF_loans_createdAt DEFAULT SYSUTCDATETIME(),
+    createdAt          DATETIME2      NOT NULL CONSTRAINT DF_loans_crea                                                                   tedAt DEFAULT SYSUTCDATETIME(),
     updatedAt          DATETIME2      NOT NULL CONSTRAINT DF_loans_updatedAt DEFAULT SYSUTCDATETIME(),
 
     CONSTRAINT PK_loans                  PRIMARY KEY (id),
     CONSTRAINT UQ_loans_idempotencyKey   UNIQUE (idempotencyKey),
-    CONSTRAINT FK_loans_tools            FOREIGN KEY (toolId)    REFERENCES tools (id),
+    CONSTRAINT FK_loans                                                                                       _tools            FOREIGN KEY (toolId)    REFERENCES tools (id),
     CONSTRAINT FK_loans_users            FOREIGN KEY (studentId) REFERENCES users (id)
   );
 
@@ -120,6 +123,10 @@ BEGIN
     sanctionType NVARCHAR(20)  NOT NULL,
     daysOverdue  INT           NOT NULL CONSTRAINT DF_sanctions_daysOverdue DEFAULT 0,
     description  NVARCHAR(MAX) NULL,
+    startsAt     DATETIME2     NOT NULL CONSTRAINT DF_sanctions_startsAt DEFAULT SYSUTCDATETIME(),
+    endsAt       DATETIME2     NULL,
+    isPermanent  BIT           NOT NULL CONSTRAINT DF_sanctions_isPermanent DEFAULT 0,
+    appealMessage NVARCHAR(500) NULL,
     status       NVARCHAR(20)  NOT NULL CONSTRAINT DF_sanctions_status      DEFAULT 'active',
     createdAt    DATETIME2     NOT NULL CONSTRAINT DF_sanctions_createdAt   DEFAULT SYSUTCDATETIME(),
     resolvedAt   DATETIME2     NULL,
@@ -130,6 +137,7 @@ BEGIN
   );
 
   CREATE INDEX IX_sanctions_studentId_status ON sanctions (studentId, status);
+  CREATE INDEX IX_sanctions_blocking_window ON sanctions (studentId, status, startsAt, endsAt);
 END
 GO
 
@@ -222,6 +230,41 @@ BEGIN
   );
 
   CREATE INDEX IX_email_outbox_status_scheduledAt ON email_outbox (status, scheduledAt);
+END
+GO
+
+-- ─── tool_categories ─────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'tool_categories')
+BEGIN
+  CREATE TABLE tool_categories (
+    id          INT           IDENTITY(1,1) NOT NULL,
+    name        NVARCHAR(100) NOT NULL,
+    description NVARCHAR(500) NULL,
+    createdAt   DATETIME2     NOT NULL CONSTRAINT DF_tool_cat_createdAt DEFAULT SYSUTCDATETIME(),
+    updatedAt   DATETIME2     NOT NULL CONSTRAINT DF_tool_cat_updatedAt DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT PK_tool_categories      PRIMARY KEY (id),
+    CONSTRAINT UQ_tool_categories_name UNIQUE (name)
+  );
+END
+GO
+
+-- ─── tool_locations ──────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'tool_locations')
+BEGIN
+  CREATE TABLE tool_locations (
+    id           INT           IDENTITY(1,1) NOT NULL,
+    name         NVARCHAR(100) NOT NULL,
+    locationType NVARCHAR(20)  NOT NULL CONSTRAINT DF_tool_loc_type DEFAULT 'estante',
+    area         NVARCHAR(100) NOT NULL,
+    createdAt    DATETIME2     NOT NULL CONSTRAINT DF_tool_loc_createdAt DEFAULT SYSUTCDATETIME(),
+    updatedAt    DATETIME2     NOT NULL CONSTRAINT DF_tool_loc_updatedAt DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT PK_tool_locations      PRIMARY KEY (id),
+    CONSTRAINT UQ_tool_locations_name UNIQUE (name)
+  );
+
+  CREATE INDEX IX_tool_locations_area ON tool_locations (area);
 END
 GO
 

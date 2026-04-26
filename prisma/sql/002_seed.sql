@@ -8,7 +8,7 @@ USE kite_hub;
 GO
 
 -- ─── Users ───────────────────────────────────────────────────────────────────
--- 1 dev-admin (matches the DEV_AUTH_BYPASS hardcoded sub)
+-- 2 admin users (one for DEV_AUTH_BYPASS and one custom admin)
 -- 1 staff member
 -- 3 students with cardKey values for kiosk QR scans
 
@@ -21,7 +21,9 @@ USING (VALUES
   (2, 'auth0|staff001',   'KEY_900002','María López',      'maria@lab.local',   'staff'),
   (3, 'seed|student001',  'KEY_000001','Carlos Ramírez',   'carlos@uni.local',  'student'),
   (4, 'seed|student002',  'KEY_000002','Laura Sánchez',    'laura@uni.local',   'student'),
-  (5, 'seed|student003',  'KEY_000003','Diego Flores',     'diego@uni.local',   'student')
+  (5, 'seed|student003',  'KEY_000003','Diego Flores',     'diego@uni.local',   'student'),
+  (6, 'user',             'KEY_000112','Santiago Merino',  'santiago@lab.local','admin')
+  
 ) AS source (id, auth0Sub, cardKey, name, email, role)
 ON target.id = source.id
 WHEN NOT MATCHED THEN
@@ -30,20 +32,50 @@ WHEN NOT MATCHED THEN
           0, SYSUTCDATETIME(), SYSUTCDATETIME());
 GO
 
+-- ─── Tool Categories ─────────────────────────────────────────────────────────
+MERGE tool_categories AS target
+USING (VALUES
+  (1, 'Medición',     'Instrumentos de medición eléctrica y electrónica'),
+  (2, 'Ensamble',     'Herramientas para soldadura y ensamble de componentes'),
+  (3, 'Alimentación', 'Fuentes de poder y suministro de energía regulable')
+) AS source (id, name, description)
+ON target.name = source.name
+WHEN NOT MATCHED THEN
+  INSERT (name, description, createdAt, updatedAt)
+  VALUES (source.name, source.description, SYSUTCDATETIME(), SYSUTCDATETIME());
+GO
+
+-- ─── Tool Locations ───────────────────────────────────────────────────────────
+MERGE tool_locations AS target
+USING (VALUES
+  (1, 'Estante A-1', 'estante', 'Mueble A'),
+  (2, 'Estante A-2', 'estante', 'Mueble A'),
+  (3, 'Estante A-3', 'estante', 'Mueble A'),
+  (4, 'Estante B-1', 'estante', 'Mueble B'),
+  (5, 'Estante B-2', 'estante', 'Mueble B'),
+  (6, 'Gaveta A-1',  'gaveta',  'Mueble A'),
+  (7, 'Gaveta B-1',  'gaveta',  'Mueble B')
+) AS source (id, name, locationType, area)
+ON target.name = source.name
+WHEN NOT MATCHED THEN
+  INSERT (name, locationType, area, createdAt, updatedAt)
+  VALUES (source.name, source.locationType, source.area, SYSUTCDATETIME(), SYSUTCDATETIME());
+GO
+
 -- ─── Tools ───────────────────────────────────────────────────────────────────
 MERGE tools AS target
 USING (VALUES
-  (1, 'MAR_001', 'Multímetro Digital',      'Medición de voltaje, corriente y resistencia',    'Medición',    'good',      'Estante A-1'),
-  (2, 'MAR_002', 'Osciloscopio 100 MHz',    'Visualización de señales eléctricas en tiempo real', 'Medición', 'excellent', 'Estante A-2'),
-  (3, 'MAR_003', 'Soldadora de Estaño',     'Soldadura de componentes electrónicos',           'Ensamble',    'fair',      'Estante B-1'),
-  (4, 'MAR_004', 'Fuente de Poder Variable','Suministro regulable 0-30V / 0-5A',              'Alimentación', 'good',      'Estante B-2'),
-  (5, 'MAR_005', 'Generador de Funciones',  'Señales sen/cuad/tri hasta 10 MHz',              'Medición',    'good',      'Estante A-3')
-) AS source (id, toolId, name, description, category, condition, location)
+  (1, 'MUL_001', 'MUL', 'Multímetro Digital',       'Medición de voltaje, corriente y resistencia',        'Medición',     'good',      'Estante A-1', 0),
+  (2, 'OSC_001', 'OSC', 'Osciloscopio 100 MHz',     'Visualización de señales eléctricas en tiempo real',  'Medición',     'excellent', 'Estante A-2', 1),
+  (3, 'SOL_001', 'SOL', 'Soldadora de Estaño',      'Soldadura de componentes electrónicos',                'Ensamble',     'fair',      'Estante B-1', 0),
+  (4, 'FUE_001', 'FUE', 'Fuente de Poder Variable', 'Suministro regulable 0-30V / 0-5A',                   'Alimentación', 'good',      'Estante B-2', 0),
+  (5, 'GEN_001', 'GEN', 'Generador de Funciones',   'Señales sen/cuad/tri hasta 10 MHz',                   'Medición',     'good',      'Estante A-3', 1)
+) AS source (id, toolId, prefix, name, description, category, condition, location, requiresApproval)
 ON target.id = source.id
 WHEN NOT MATCHED THEN
-  INSERT (toolId, name, description, category, condition, location, createdAt, updatedAt)
-  VALUES (source.toolId, source.name, source.description, source.category,
-          source.condition, source.location, SYSUTCDATETIME(), SYSUTCDATETIME());
+  INSERT (toolId, prefix, name, description, category, condition, location, requiresApproval, qrCode, createdAt, updatedAt)
+  VALUES (source.toolId, source.prefix, source.name, source.description, source.category,
+          source.condition, source.location, source.requiresApproval, source.toolId, SYSUTCDATETIME(), SYSUTCDATETIME());
 GO
 
 -- ─── Inventory ───────────────────────────────────────────────────────────────
@@ -84,10 +116,10 @@ DECLARE @7dago  DATETIME2 = DATEADD(DAY, -7, @now);
 MERGE loans AS target
 USING (VALUES
   -- idempotencyKey, toolCode, studentCardKey, borrowDate, expectedReturn, actualReturn, status, condBorrow
-  ('seed-loan-001', 'MAR_001', 'KEY_000001', @now,    @tmrw,  NULL,    'active',   'good'),
-  ('seed-loan-002', 'MAR_002', 'KEY_000002', @now,    @3d,    NULL,    'active',   'excellent'),
-  ('seed-loan-003', 'MAR_003', 'KEY_000003', @10dago, @7dago, @7dago,  'returned', 'fair'),
-  ('seed-loan-004', 'MAR_003', 'KEY_000001', @8dago,  @5dago, NULL,    'overdue',  'good')
+  ('seed-loan-001', 'MUL_001', 'KEY_000001', @now,    @tmrw,  NULL,    'active',   'good'),
+  ('seed-loan-002', 'OSC_001', 'KEY_000002', @now,    @3d,    NULL,    'requested','excellent'),
+  ('seed-loan-003', 'SOL_001', 'KEY_000003', @10dago, @7dago, @7dago,  'returned', 'fair'),
+  ('seed-loan-004', 'SOL_001', 'KEY_000001', @8dago,  @5dago, NULL,    'overdue',  'good')
 ) AS source (idempotencyKey, toolCode, studentCardKey, borrowDate, expectedReturnDate, actualReturnDate, status, conditionOnBorrow)
 ON target.idempotencyKey = source.idempotencyKey
 WHEN NOT MATCHED THEN
@@ -112,17 +144,22 @@ GO
 
 MERGE sanctions AS target
 USING (VALUES
-  ('seed-sanction-001', 'KEY_000001', 'seed-loan-004', 'overdue', 5, 'Devolución pendiente con 5 días de atraso en MAR_003.', 'active')
-) AS source (seedKey, studentCardKey, loanSeedKey, sanctionType, daysOverdue, description, status)
-ON target.description = source.seedKey
+  ('seed-sanction-001', 'KEY_000001', 'seed-loan-004', 'overdue', 5, 'Devolución pendiente con 5 días de atraso en SOL_001.', 'active', 0, DATEADD(DAY, -2, SYSUTCDATETIME()), DATEADD(DAY, 5, SYSUTCDATETIME()), 'Si necesitas esta herramienta para práctica, solicita apelación en administración.'),
+  ('seed-sanction-002', 'KEY_000002', NULL,            'other',   0, 'Uso indebido del laboratorio. Bloqueo permanente.',      'active', 1, DATEADD(DAY, -10, SYSUTCDATETIME()), NULL,                                'Debes conversar con administración para apelar este bloqueo.')
+) AS source (seedKey, studentCardKey, loanSeedKey, sanctionType, daysOverdue, description, status, isPermanent, startsAt, endsAt, appealMessage)
+ON target.description = source.description
 WHEN NOT MATCHED THEN
-  INSERT (studentId, loanId, sanctionType, daysOverdue, description, status, createdAt)
+  INSERT (studentId, loanId, sanctionType, daysOverdue, description, startsAt, endsAt, isPermanent, appealMessage, status, createdAt)
   VALUES (
     (SELECT TOP 1 u.id FROM users u WHERE u.cardKey = source.studentCardKey),
     (SELECT TOP 1 l.id FROM loans l WHERE l.idempotencyKey = source.loanSeedKey),
     source.sanctionType,
     source.daysOverdue,
-    source.seedKey,
+    source.description,
+    source.startsAt,
+    source.endsAt,
+    source.isPermanent,
+    source.appealMessage,
     source.status,
     SYSUTCDATETIME()
   );
@@ -139,9 +176,10 @@ SELECT
   t.id AS toolId,
   v.details
 FROM (VALUES
-  ('LOAN_CREATED', 'seed-loan-001', 'MAR_001', '{"seed":"seed-audit-001","note":"Préstamo MAR_001 creado por admin dev"}'),
-  ('LOAN_CREATED', 'seed-loan-004', 'MAR_003', '{"seed":"seed-audit-002","note":"Préstamo MAR_003 creado por admin dev"}'),
-  ('LOAN_OVERDUE', 'seed-loan-004', 'MAR_003', '{"seed":"seed-audit-003","daysOverdue":5,"note":"Marcado como vencido por job automático"}')
+  ('LOAN_CREATED', 'seed-loan-001', 'MUL_001', '{"seed":"seed-audit-001","note":"Préstamo MUL_001 creado por admin dev"}'),
+  ('LOAN_REQUESTED', 'seed-loan-002', 'OSC_001', '{"seed":"seed-audit-004","note":"Solicitud OSC_001 pendiente de aprobación"}'),
+  ('LOAN_CREATED', 'seed-loan-004', 'SOL_001', '{"seed":"seed-audit-002","note":"Préstamo SOL_001 creado por admin dev"}'),
+  ('LOAN_OVERDUE', 'seed-loan-004', 'SOL_001', '{"seed":"seed-audit-003","daysOverdue":5,"note":"Marcado como vencido por job automático"}')
 ) AS v (action, loanSeedKey, toolCode, details)
 JOIN users u ON u.auth0Sub = 'dev|bypass-admin'
 JOIN loans l ON l.idempotencyKey = v.loanSeedKey

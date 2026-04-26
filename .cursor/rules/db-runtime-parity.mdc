@@ -1,0 +1,20 @@
+---
+description: Validate DB runtime parity before closing Prisma connection issues
+alwaysApply: true
+---
+
+# DB Runtime Parity (Prisma + SQL Server)
+
+Cuando se depure o "arregle" un problema de conexión/Prisma:
+
+1. No asumir que "conecta" implica que el esquema existe.
+2. Verificar siempre el contexto real de runtime:
+   - `DATABASE_URL` efectiva
+   - `DB_NAME()` y `@@SERVERNAME`
+3. Ejecutar `npm run db:test` y confirmar que valida:
+   - conectividad (`SELECT 1`)
+   - tablas mínimas (`users`, `tools`, `loans`, `alerts`)
+4. Si hay `P2021` (tabla no existe), preferir:
+   - `npx prisma db push --schema prisma/schema.prisma`
+   - evitar declarar resuelto hasta confirmar tablas en la DB activa.
+5. Antes de cerrar el ticket, confirmar en logs que ya no aparecen errores Prisma por tablas faltantes.

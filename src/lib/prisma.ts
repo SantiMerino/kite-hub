@@ -1,4 +1,14 @@
-import { PrismaClient } from "@prisma/client";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import type { PrismaClient } from "@prisma/client";
+
+const require = createRequire(fileURLToPath(import.meta.url));
+// Turbopack can resolve @prisma/client with the `edge-light` condition and load
+// the wasm/Accelerate client, which only accepts prisma:// (P6001). Node's
+// require() uses the `node` condition and the normal query engine.
+const { PrismaClient: PrismaClientConstructor } = require(
+  "@prisma/client",
+) as typeof import("@prisma/client");
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -23,7 +33,7 @@ warnIfConflictingSqlServerUrl();
 
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
+  new PrismaClientConstructor({
     log:
       process.env.NODE_ENV === "development"
         ? ["error", "warn"]
