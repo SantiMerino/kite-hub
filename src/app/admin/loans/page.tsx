@@ -1,1 +1,1 @@
-export { default } from "@/components/features/loans/pages/LoansAdminPage";
+export { default } from "@admin/loans/LoansAdminPage";
