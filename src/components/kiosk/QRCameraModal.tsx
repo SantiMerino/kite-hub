@@ -174,7 +174,6 @@ export default function QRCameraModal({ title, onScan, onClose }: QRCameraModalP
             </div>
           ) : (
             <>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video
                 ref={videoRef}
                 className="w-full"

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isDevAuthBypassEnabled } from "@/lib/dev-bypass";
 
 const DEV_SESSION = {
@@ -14,7 +14,7 @@ class DevAuth0Client {
   async getSession() {
     return DEV_SESSION;
   }
-  async middleware(_req: NextRequest) {
+  async middleware() {
     return NextResponse.next();
   }
 }
