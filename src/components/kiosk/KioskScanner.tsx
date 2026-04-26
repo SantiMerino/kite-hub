@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { QrCode, CreditCard, CheckCircle2, XCircle, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,23 @@ type Step = "idle" | "tool_scanned" | "card_scanned" | "loading" | "result";
 
 type ResultType =
   | { action: "borrowed"; loanId: number; toolName: string; studentName: string; expectedReturnDate: string }
+  | { action: "requested"; loanId: number; toolName: string; studentName: string; message: string }
   | { action: "returned"; loanId: number; toolName: string; studentName: string }
   | { action: "conflict"; message: string; borrowerName: string | null }
-  | { action: "error"; message: string };
+  | {
+      action: "error";
+      message: string;
+      block?: {
+        reason: string;
+        isPermanent: boolean;
+        endsAt: string | null;
+        startsAt: string | null;
+        appealMessage: string;
+      };
+    };
 
 export default function KioskScanner() {
+  const kioskPublicKey = process.env.NEXT_PUBLIC_KIOSK_KEY ?? "";
   const [step, setStep] = useState<Step>("idle");
   const [toolPayload, setToolPayload] = useState("");
   const [cardKey, setCardKey] = useState("");
@@ -76,6 +88,15 @@ export default function KioskScanner() {
   }, [cardManual, toolPayload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submitLoanOrReturn = useCallback(async (tool: string, card: string) => {
+    if (!kioskPublicKey) {
+      setResult({
+        action: "error",
+        message: "Falta NEXT_PUBLIC_KIOSK_KEY en el entorno de desarrollo. Configúrala para usar el kiosk.",
+      });
+      setStep("result");
+      return;
+    }
+
     setStep("loading");
     idempotencyKeyRef.current = `${tool}:${card}:${Date.now()}`;
 
@@ -84,7 +105,7 @@ export default function KioskScanner() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-kiosk-key": process.env.NEXT_PUBLIC_KIOSK_KEY ?? "",
+          "x-kiosk-key": kioskPublicKey,
           "idempotency-key": idempotencyKeyRef.current,
         },
         body: JSON.stringify({ toolPayload: tool, cardKey: card }),
@@ -93,7 +114,15 @@ export default function KioskScanner() {
       const data = await res.json();
 
       if (!res.ok) {
-        setResult({ action: "error", message: data.error ?? "Error desconocido" });
+        if (data.blocked) {
+          setResult({
+            action: "error",
+            message: data.error ?? "Acceso bloqueado.",
+            block: data.block,
+          });
+        } else {
+          setResult({ action: "error", message: data.error ?? "Error desconocido" });
+        }
       } else {
         setResult(data as ResultType);
       }
@@ -102,7 +131,7 @@ export default function KioskScanner() {
     }
 
     setStep("result");
-  }, []);
+  }, [kioskPublicKey]);
 
   return (
     <div className="w-full space-y-4">
@@ -279,9 +308,25 @@ function ResultCard({
   result: ResultType;
   onReset: () => void;
 }) {
-  const isPosive = result.action === "borrowed" || result.action === "returned";
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (result.action !== "error" || !result.block?.endsAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [result]);
+
+  const isPosive =
+    result.action === "borrowed" ||
+    result.action === "returned" ||
+    result.action === "requested";
   const isConflict = result.action === "conflict";
-  const isError = result.action === "error";
+  const isBlocked = result.action === "error" && Boolean(result.block);
+  const isError = result.action === "error" && !result.block;
+  const remainingLabel =
+    result.action === "error" && result.block?.endsAt
+      ? formatRemainingMs(new Date(result.block.endsAt).getTime() - now)
+      : null;
 
   return (
     <div
@@ -290,11 +335,14 @@ function ResultCard({
           ? "border-emerald-300 bg-emerald-50"
           : isConflict
           ? "border-amber-300 bg-amber-50"
+          : isBlocked
+          ? "border-purple-300 bg-purple-50"
           : "border-red-300 bg-red-50"
       }`}
     >
       {isPosive && <CheckCircle2 className="size-12 text-emerald-600 mx-auto mb-3" />}
       {isConflict && <AlertCircle className="size-12 text-amber-600 mx-auto mb-3" />}
+      {isBlocked && <AlertCircle className="size-12 text-purple-600 mx-auto mb-3" />}
       {isError && <XCircle className="size-12 text-red-600 mx-auto mb-3" />}
 
       {result.action === "borrowed" && (
@@ -323,6 +371,16 @@ function ResultCard({
         </>
       )}
 
+      {result.action === "requested" && (
+        <>
+          <h2 className="text-lg font-bold text-emerald-800 mb-1">Solicitud registrada</h2>
+          <p className="text-sm text-emerald-700 mb-1">
+            <strong>{result.studentName}</strong> solicitó: <strong>{result.toolName}</strong>
+          </p>
+          <p className="text-xs text-emerald-700">{result.message}</p>
+        </>
+      )}
+
       {result.action === "conflict" && (
         <>
           <h2 className="text-lg font-bold text-amber-800 mb-1">Herramienta no disponible</h2>
@@ -333,7 +391,22 @@ function ResultCard({
         </>
       )}
 
-      {result.action === "error" && (
+      {result.action === "error" && result.block && (
+        <>
+          <h2 className="text-lg font-bold text-purple-800 mb-1">Préstamo bloqueado</h2>
+          <p className="text-sm text-purple-700 mb-1">{result.block.reason}</p>
+          {result.block.isPermanent ? (
+            <p className="text-xs text-purple-700 font-semibold">Bloqueo permanente</p>
+          ) : (
+            <p className="text-xs text-purple-700 font-semibold">
+              Bloqueo temporal {remainingLabel ? `(${remainingLabel} restantes)` : ""}
+            </p>
+          )}
+          <p className="text-xs text-purple-700 mt-2">{result.block.appealMessage}</p>
+        </>
+      )}
+
+      {result.action === "error" && !result.block && (
         <>
           <h2 className="text-lg font-bold text-red-800 mb-1">Error</h2>
           <p className="text-sm text-red-700">{result.message}</p>
@@ -350,4 +423,18 @@ function ResultCard({
       </Button>
     </div>
   );
+}
+
+function formatRemainingMs(ms: number): string {
+  if (ms <= 0) return "0s";
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }
