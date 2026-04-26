@@ -3,8 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollText } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
-
 const ACTION_COLORS: Record<string, string> = {
   BORROW: "text-blue-600 bg-blue-50 border-blue-200",
   RETURN: "text-emerald-600 bg-emerald-50 border-emerald-200",

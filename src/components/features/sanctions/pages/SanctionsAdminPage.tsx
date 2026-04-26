@@ -10,8 +10,6 @@ import QRCameraModal from "@/components/kiosk/QRCameraModal";
 import { formatDate, isValidCardKey, normalizeCardKey } from "@/lib/utils";
 import { AlertTriangle, Camera, Pencil, Trash2, UserRoundCheck } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 const SANCTION_TYPE_LABEL: Record<string, string> = {
   overdue: "Atraso",
   damage: "Daño",

@@ -3,8 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { MetricsChart } from "@/components/charts/MetricsChart";
 
-export const dynamic = "force-dynamic";
-
 export default async function MetricsPage() {
   const now = new Date();
   const thirtyDaysAgo = new Date(now);

@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, daysOverdue } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
-
 type LoanRow = {
   id: number;
   tool: { name: string; toolId: string };

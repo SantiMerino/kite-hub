@@ -1,2 +1,1 @@
-export const dynamic = "force-dynamic";
-export { default } from "@/app/(admin)/metrics/page";
+export { default } from "@/components/features/analytics/pages/MetricsAdminPage";

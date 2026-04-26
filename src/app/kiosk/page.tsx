@@ -1,11 +1,5 @@
-import { Metadata } from "next";
 import KioskScanner from "@/components/kiosk/KioskScanner";
 import { FlaskConical } from "lucide-react";
-
-export const metadata: Metadata = {
-  title: "Kite Hub — Préstamo de herramientas",
-  description: "Escanea el QR de la herramienta y tu carné para prestar o devolver.",
-};
 
 export default function KioskPage() {
   return (
