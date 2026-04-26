@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { loanOrReturn } from "@/services/loan.service";
+import { LoanBlockedError, loanOrReturn } from "@/services/loan.service";
 
 const CONDITION_VALUES = ["excellent", "good", "fair", "poor"] as const;
 
@@ -72,6 +72,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof LoanBlockedError) {
+      return NextResponse.json(
+        {
+          error: err.message,
+          blocked: true,
+          block: err.details,
+        },
+        { status: 403 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Error interno";
     return NextResponse.json({ error: message }, { status: 400 });
   }

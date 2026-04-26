@@ -6,11 +6,14 @@ import { updateTool, deleteTool } from "@/services/tool.service";
 const CONDITION_VALUES = ["excellent", "good", "fair", "poor"] as const;
 
 const updateSchema = z.object({
+  toolId: z.string().regex(/^[A-Z0-9]{3}_\d{3}$/, "Formato PREFIX_NNN requerido").optional(),
+  prefix: z.string().max(10).optional(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   category: z.string().optional(),
   condition: z.enum(CONDITION_VALUES).optional(),
   location: z.string().optional(),
+  requiresApproval: z.boolean().optional(),
   qrCode: z.string().optional(),
 });
 
@@ -23,7 +26,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!parsed.success) {
       return NextResponse.json({ error: "Validation error" }, { status: 422 });
     }
-    const tool = await updateTool(Number(id), parsed.data, actor.id);
+    const updates = { ...parsed.data };
+    if (updates.toolId && !updates.prefix) {
+      updates.prefix = updates.toolId.split("_")[0] ?? undefined;
+    }
+    const tool = await updateTool(Number(id), updates, actor.id);
     return NextResponse.json(tool);
   } catch (res) {
     if (res instanceof NextResponse) return res;

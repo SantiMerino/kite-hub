@@ -14,7 +14,7 @@ export async function processOverdueLoans(): Promise<{ processed: number; newAle
 
     const overdueLoans = await prisma.loan.findMany({
     where: {
-      status: { in: ["active", "overdue"] },
+      status: { in: ["active", "approved", "overdue"] },
       expectedReturnDate: { lt: now },
     },
     include: {

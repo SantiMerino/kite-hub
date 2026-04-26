@@ -15,7 +15,10 @@ export async function GET() {
     const students = await prisma.user.findMany({
       where: { role: "student" },
       include: {
-        loans: { where: { status: "active" }, select: { id: true } },
+        loans: {
+          where: { status: { in: ["active", "overdue"] } },
+          select: { id: true, status: true },
+        },
         sanctions: { where: { status: "active" }, select: { id: true } },
       },
       orderBy: { name: "asc" },
