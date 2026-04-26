@@ -210,10 +210,50 @@ npm run dev
 
 ```bash
 npm run dev      # Next.js con Turbopack
+npm run dev:local
 npm run build
 npm run start
 npm run lint
 ```
+
+### Probar `kiosk` desde iPhone (misma LAN)
+
+1. Configura secretos de kiosk en `.env.local`:
+
+```env
+KIOSK_SECRET="dev-kiosk-secret-local"
+NEXT_PUBLIC_KIOSK_KEY="dev-kiosk-secret-local"
+```
+
+2. Inicia el servidor para red local:
+
+```bash
+npm run dev
+```
+
+3. Desde la PC, identifica tu IP LAN (ejemplo en Windows):
+
+```bash
+ipconfig
+```
+
+4. En iPhone (Safari), abre:
+   - `http://<IP_DE_TU_PC>:3000/kiosk`
+5. Permite acceso a la camara cuando Safari lo solicite y prueba:
+   - Escaneo de herramienta (QR 1)
+   - Escaneo de carne (QR 2)
+
+Si iOS bloquea el uso de camara por contexto no seguro, usa un tunel HTTPS:
+
+```bash
+# Opcion A: cloudflared
+cloudflared tunnel --url http://localhost:3000
+
+# Opcion B: ngrok
+ngrok http 3000
+```
+
+Abre la URL `https://...` que te entregue el tunel y repite la prueba en `/kiosk`.
 
 ## Testing
 

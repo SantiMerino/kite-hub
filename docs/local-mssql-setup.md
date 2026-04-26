@@ -146,6 +146,7 @@ DEV_AUTH_BYPASS="true"
 
 # Secrets de desarrollo (valores de prueba, cámbialos en producción)
 KIOSK_SECRET="dev-kiosk-secret-local"
+NEXT_PUBLIC_KIOSK_KEY="dev-kiosk-secret-local"
 CRON_SECRET="dev-cron-secret-local"
 
 # Email (desactiva el envío real en dev dejando la key vacía o usando un sandbox)

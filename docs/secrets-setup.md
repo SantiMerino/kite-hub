@@ -1,6 +1,6 @@
 # Configuración de Secrets: KIOSK_SECRET y CRON_SECRET
 
-Kite Hub protege dos endpoints sensibles con Bearer tokens estáticos. Esta guía explica para qué sirve cada uno, cómo generarlo y cómo usarlo en desarrollo y en producción.
+Kite Hub protege endpoints sensibles con tokens estáticos. Esta guía explica para qué sirve cada uno, cómo generarlo y cómo usarlo en desarrollo y producción.
 
 ---
 
@@ -16,10 +16,10 @@ El endpoint protegido es:
 POST /api/kiosk/loan-or-return
 ```
 
-El kiosco debe enviar el token en el header `Authorization`:
+El kiosco debe enviar el token en el header `x-kiosk-key` (desde `NEXT_PUBLIC_KIOSK_KEY` en cliente):
 
 ```
-Authorization: Bearer <KIOSK_SECRET>
+x-kiosk-key: <KIOSK_SECRET>
 ```
 
 Si el header está ausente o el token no coincide, el endpoint responde `401 Unauthorized`.
@@ -56,8 +56,14 @@ Para probar el endpoint desde la terminal:
 ```bash
 curl -X POST http://localhost:3000/api/kiosk/loan-or-return \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <KIOSK_SECRET>" \
-  -d '{"cardKey":"KEY_000001","toolId":"MAR_001"}'
+  -H "x-kiosk-key: <KIOSK_SECRET>" \
+  -d '{"cardKey":"KEY_000001","toolPayload":"MAR_001"}'
+```
+
+Si pruebas desde la UI de `/kiosk`, configura tambien:
+
+```env
+NEXT_PUBLIC_KIOSK_KEY="<mismo-valor-de-KIOSK_SECRET>"
 ```
 
 ### Configuración en producción
@@ -159,4 +165,4 @@ Agrega `APP_URL` y `CRON_SECRET` en **Repository Settings → Secrets and variab
 - Usa valores **distintos** para cada secret.
 - Nunca los incluyas en el código fuente ni en commits.
 - Rota los secrets si sospechas que fueron expuestos (actualiza `.env.local` y la plataforma de hosting).
-- En producción, usa **HTTPS** siempre — los tokens viajan en el header `Authorization` en texto plano a nivel HTTP.
+- En producción, usa **HTTPS** siempre — los tokens viajan en headers HTTP.
