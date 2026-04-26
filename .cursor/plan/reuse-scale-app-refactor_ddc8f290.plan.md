@@ -7,25 +7,25 @@ todos:
     status: pending
   - id: admin-route-single-source
     content: Consolidar rutas admin para dejar src/app/admin como única fuente y eliminar wrappers/(admin).
-    status: pending
+    status: completed
   - id: refactor-tools
     content: Extraer feature tools a src/components/features/tools y adelgazar page.tsx.
-    status: pending
+    status: completed
   - id: refactor-sanctions
     content: Extraer feature sanctions a src/components/features/sanctions y separar lógica de negocio de UI.
-    status: pending
+    status: completed
   - id: refactor-loans
     content: Extraer feature loans a src/components/features/loans y modularizar acciones por estado.
-    status: pending
+    status: completed
   - id: refactor-students-analytics-audit
     content: Extraer students, analytics y audit a componentes reutilizables por feature.
-    status: pending
+    status: completed
   - id: global-export-compliance
     content: Aplicar cumplimiento global de un export por archivo TSX en src/app y wrappers admin.
-    status: pending
+    status: completed
   - id: hardening-validation
     content: Validar build/lint/smoke por fase y cerrar riesgos server-client y contratos tipados.
-    status: pending
+    status: in_progress
 isProject: false
 ---
 
@@ -60,11 +60,11 @@ isProject: false
 3. Crear baseline de calidad (build + lint + smoke de rutas admin/kiosk) para validar cada PR.
 
 ## Fase 1 — Fuente única de rutas admin
-1. Establecer `src/app/admin/` como única fuente de páginas para URLs `/admin/*`.
-2. Mover implementación de `src/app/(admin)/*/page.tsx` a `src/app/admin/*/page.tsx` para eliminar re-exports puente.
-3. Consolidar auth/layout en `src/app/admin/layout.tsx` (guard de sesión + rol `staff|admin`) y retirar `src/app/(admin)/layout.tsx`.
-4. Eliminar el árbol `src/app/(admin)` y actualizar imports/rutas internas para evitar referencias residuales.
-5. Validar que no existan rutas top-level no deseadas (`/dashboard`, `/loans`, etc.) y que toda navegación use `/admin/*`.
+1. ✅ Establecer `src/app/admin/` como única fuente de páginas para URLs `/admin/*`.
+2. ✅ Mover implementación de `src/app/(admin)/*/page.tsx` a `src/components/features/*/pages/*` y dejar `src/app/admin/*/page.tsx` como contenedores delgados.
+3. ✅ Consolidar auth/layout en `src/app/admin/layout.tsx` (guard de sesión + rol `staff|admin`) y retirar `src/app/(admin)/layout.tsx`.
+4. ✅ Eliminar el árbol `src/app/(admin)` y actualizar imports/rutas internas para evitar referencias residuales.
+5. ⏳ Validar que no existan rutas top-level no deseadas (`/dashboard`, `/loans`, etc.) y que toda navegación use `/admin/*`.
 
 ## Fase 2 — Feature Tools (máxima prioridad)
 - Origen: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/tools/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/tools/page.tsx)
@@ -74,7 +74,7 @@ isProject: false
   - subcomponentes inline (ej. combobox catálogo),
   - secciones (filtros, creación, clusters, CRUD de catálogo),
   - hooks de estado (`useToolsAdmin`, `useToolFilters`).
-- Resultado esperado: `page.tsx` solo ensambla secciones y delega lógica.
+- ✅ Resultado esperado: `page.tsx` ahora es contenedor delgado y la implementación vive en `src/components/features/tools/pages/ToolsAdminPage.tsx`.
 
 ## Fase 3 — Feature Sanctions
 - Origen: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/sanctions/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/sanctions/page.tsx)
@@ -84,7 +84,7 @@ isProject: false
   - tabla inline y secciones de formulario/histórico,
   - hooks de sanitización/input + mutaciones,
   - schema de formulario si aplica.
-- Resultado esperado: separación clara entre reglas de negocio de sanciones y rendering.
+- ✅ Resultado esperado: `page.tsx` del admin quedó delgado y el feature está en `src/components/features/sanctions/pages/SanctionsAdminPage.tsx`.
 
 ## Fase 4 — Feature Loans
 - Origen: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/loans/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/loans/page.tsx)
@@ -92,7 +92,7 @@ isProject: false
   - tabla y secciones por estado (requested/active/overdue/history),
   - constantes de acciones/etiquetas,
   - hooks `useLoanActions` + `useLoansAdmin` para ruteo de acciones.
-- Resultado esperado: eliminar flujo de acciones monolítico de la página.
+- ✅ Resultado esperado: `page.tsx` del admin quedó delgado y el feature está en `src/components/features/loans/pages/LoansAdminPage.tsx`.
 
 ## Fase 5 — Features Students, Dashboard, Metrics, Audit
 - Orígenes:
@@ -104,17 +104,25 @@ isProject: false
   - filtros/tablas/paginación,
   - constantes visuales (ej. `ACTION_COLORS`, KPI metadata),
   - componentes server-presentacionales reutilizables.
+- ✅ Implementado en:
+  - `src/components/features/students/pages/StudentsAdminPage.tsx`
+  - `src/components/features/analytics/pages/DashboardAdminPage.tsx`
+  - `src/components/features/analytics/pages/MetricsAdminPage.tsx`
+  - `src/components/features/audit/pages/AuditAdminPage.tsx`
 
 ## Fase 6 — Cumplimiento global de “1 export por TSX”
-1. Corregir todos los TSX de `src/app` con múltiples exports (`dynamic`, `metadata`, re-exports + default).
-2. Para páginas Next que requieren `default export`, mover exports secundarios a archivos adyacentes (`page.config.ts`, `layout.metadata.ts`, etc.) cuando sea necesario.
-3. Verificar que no persistan re-exports/aliases de transición en `src/app/admin`.
+1. ✅ Corregir todos los TSX de `src/app` con múltiples exports (`dynamic`, `metadata`, re-exports + default).
+2. ✅ Para páginas Next que requieren `default export`, mantener contenedores delgados con un solo export por `page.tsx`.
+3. ✅ Verificar que no persistan re-exports/aliases de transición en `src/app/admin`.
 
 ## Fase 7 — Hardening de escalabilidad
 1. Unificar contratos de tipos por feature para consumo UI/API.
 2. Estandarizar clientes `fetch` tipados por feature.
 3. Validar límites server/client y serialización de datos.
-4. Ejecutar validación por fase: lint, build, smoke funcional de flujos críticos (tools, sanctions, loans, kiosk).
+4. ⏳ Ejecutar validación por fase: lint, build, smoke funcional de flujos críticos (tools, sanctions, loans, kiosk).
+   - ✅ `npm run typecheck` pasa.
+   - ⚠️ `npm run lint` falla por script de Next (`next lint` interpreta `lint` como directorio).
+   - ⚠️ `npm run build` falla en `prisma generate` por `EPERM` al renombrar `query_engine-windows.dll.node` (archivo bloqueado).
 
 ## Orden de PRs (incremental)
 1. PR-1: guardrails + convenciones + baseline.
@@ -126,19 +134,27 @@ isProject: false
 7. PR-7: cumplimiento final 1 export por TSX + hardening.
 
 ## File change summary
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/tools/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/tools/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/sanctions/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/sanctions/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/loans/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/loans/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/students/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/students/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/dashboard/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/dashboard/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/metrics/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/metrics/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/audit/page.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/audit/page.tsx)
-- **Modify**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/layout.tsx`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/admin/layout.tsx)
-- **Delete**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/(admin)`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/app/(admin))
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/tools`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/tools)
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/sanctions`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/sanctions)
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/loans`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/loans)
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/students`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/students)
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/analytics`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/analytics)
-- **Create**: [`C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/audit`](C:/Users/JoseSantiagoMerinoHe/Desktop/Kite-Hub-Projecct/src/components/features/audit)
-- **Modify**: configuración de lint/arquitectura del proyecto (archivo exacto según setup actual).
+| File | Action |
+|---|---|
+| `src/app/admin/tools/page.tsx` | Modify |
+| `src/app/admin/sanctions/page.tsx` | Modify |
+| `src/app/admin/loans/page.tsx` | Modify |
+| `src/app/admin/students/page.tsx` | Modify |
+| `src/app/admin/dashboard/page.tsx` | Modify |
+| `src/app/admin/metrics/page.tsx` | Modify |
+| `src/app/admin/audit/page.tsx` | Modify |
+| `src/app/(admin)/layout.tsx` | Delete |
+| `src/app/(admin)/tools/page.tsx` | Delete |
+| `src/app/(admin)/sanctions/page.tsx` | Delete |
+| `src/app/(admin)/loans/page.tsx` | Delete |
+| `src/app/(admin)/students/page.tsx` | Delete |
+| `src/app/(admin)/dashboard/page.tsx` | Delete |
+| `src/app/(admin)/metrics/page.tsx` | Delete |
+| `src/app/(admin)/audit/page.tsx` | Delete |
+| `src/components/features/tools/pages/ToolsAdminPage.tsx` | Create |
+| `src/components/features/sanctions/pages/SanctionsAdminPage.tsx` | Create |
+| `src/components/features/loans/pages/LoansAdminPage.tsx` | Create |
+| `src/components/features/students/pages/StudentsAdminPage.tsx` | Create |
+| `src/components/features/analytics/pages/DashboardAdminPage.tsx` | Create |
+| `src/components/features/analytics/pages/MetricsAdminPage.tsx` | Create |
+| `src/components/features/audit/pages/AuditAdminPage.tsx` | Create |
