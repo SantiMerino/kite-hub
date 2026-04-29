@@ -47,18 +47,24 @@ export default async function AuditAdminPage({ searchParams }: AuditAdminPagePro
           <CardTitle className="text-base">Buscar bitacora personal por carné</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action="/admin/audit" method="get" className="flex flex-col gap-3 md:flex-row md:items-center">
+          <form
+            action="/admin/audit"
+            method="get"
+            className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center"
+          >
             <Input
               name="cardKey"
               defaultValue={params.cardKey ?? ""}
               placeholder="Ejemplo: KEY_123456"
-              className="md:max-w-sm"
+              className="w-full md:max-w-sm min-w-0"
             />
-            <Button type="submit">Buscar</Button>
+            <Button type="submit" className="w-full sm:w-auto shrink-0">
+              Buscar
+            </Button>
             {params.cardKey ? (
               <Link
                 href={`/admin/audit/${encodeURIComponent(params.cardKey.trim().toUpperCase())}`}
-                className="text-sm text-blue-700 hover:underline"
+                className="text-sm text-foreground underline-offset-4 decoration-muted-foreground hover:underline"
               >
                 Ir a bitacora de {params.cardKey.trim().toUpperCase()}
               </Link>

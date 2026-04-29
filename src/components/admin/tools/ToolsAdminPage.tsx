@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import QRCameraModal from "@/components/kiosk/QRCameraModal";
-import { cn } from "@/lib/utils";
+import { cn, extractToolIdFromText } from "@/lib/utils";
 import {
   Wrench, Trash2, Save, PlusCircle, Camera, Filter,
   ChevronRight, ChevronDown, Info, Check, X, Plus,
@@ -193,8 +193,7 @@ const INITIAL_FORM = {
 /** Normaliza texto leído por QR/cámara al código de herramienta (ej. MAR_001). */
 function normalizeScannedToolCode(raw: string): string {
   const trimmed = raw.trim().toUpperCase();
-  const match = trimmed.match(/([A-Z0-9]{2,10}_\d{3})/);
-  return (match?.[1] ?? trimmed).replace(/\s+/g, "");
+  return (extractToolIdFromText(trimmed) ?? trimmed).replace(/\s+/g, "");
 }
 
 type SortKey = "name" | "toolId" | "category" | "location" | "availability";
@@ -688,7 +687,8 @@ export default function ToolsPage() {
             <div className="space-y-1 md:col-span-2">
               <Label htmlFor="toolId">Código escaneado (opcional)</Label>
               <p className="text-xs text-muted-foreground">
-                Escribe el código (ej. <span className="font-mono">MAR_001</span>) o escanéalo con la cámara, igual
+                Escribe el código (ej. <span className="font-mono">MAR_001</span> o{" "}
+                <span className="font-mono">PRE_ABCD_001</span>) o escanéalo con la cámara, igual
                 que en el kiosco. Si lo dejas vacío, generamos automáticamente{" "}
                 <span className="font-mono">PREFIX_NNN</span>.
               </p>
@@ -697,7 +697,7 @@ export default function ToolsPage() {
                   id="toolId"
                   value={form.toolId}
                   onChange={(e) => setForm((prev) => ({ ...prev, toolId: e.target.value.toUpperCase() }))}
-                  placeholder="MAR_001"
+                  placeholder="MAR_001 o PRE_ABCD_001"
                   className="font-mono sm:flex-1"
                   autoComplete="off"
                 />
@@ -799,16 +799,26 @@ export default function ToolsPage() {
               className={cn(
                 "md:col-span-2 rounded-lg border-2 p-4 cursor-pointer transition-all select-none outline-none",
                 form.requiresApproval
-                  ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-600"
-                  : "border-border bg-muted/20 hover:border-blue-200 dark:hover:border-blue-800 focus-visible:border-blue-300"
+                  ? "border-blue-400 bg-blue-50 dark:border-border dark:bg-muted"
+                  : "border-border bg-muted/20 hover:border-blue-200 dark:hover:border-border focus-visible:border-blue-300 dark:focus-visible:ring-2 dark:focus-visible:ring-ring"
               )}
             >
               <div className="flex items-start gap-3">
-                <div className={cn("mt-0.5 shrink-0 rounded-full p-1.5 transition-colors", form.requiresApproval ? "bg-blue-500" : "bg-muted")}>
-                  <Info className={cn("size-4", form.requiresApproval ? "text-white" : "text-muted-foreground")} />
+                <div
+                  className={cn(
+                    "mt-0.5 shrink-0 rounded-full p-1.5 transition-colors",
+                    form.requiresApproval ? "bg-blue-500 dark:bg-primary" : "bg-muted"
+                  )}
+                >
+                  <Info className={cn("size-4", form.requiresApproval ? "text-white dark:text-primary-foreground" : "text-muted-foreground")} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("font-semibold text-sm", form.requiresApproval ? "text-blue-700 dark:text-blue-300" : "text-foreground")}>
+                  <p
+                    className={cn(
+                      "font-semibold text-sm",
+                      form.requiresApproval ? "text-blue-800 dark:text-foreground" : "text-foreground"
+                    )}
+                  >
                     Requiere aprobación del encargado
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -817,9 +827,11 @@ export default function ToolsPage() {
                 </div>
                 <div className={cn(
                   "shrink-0 mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
-                  form.requiresApproval ? "border-blue-500 bg-blue-500" : "border-muted-foreground"
+                  form.requiresApproval ? "border-blue-500 bg-blue-500 dark:border-primary dark:bg-primary" : "border-muted-foreground"
                 )}>
-                  {form.requiresApproval && <Check className="size-3 text-white" />}
+                  {form.requiresApproval && (
+                    <Check className="size-3 text-white dark:text-primary-foreground" />
+                  )}
                 </div>
               </div>
             </div>

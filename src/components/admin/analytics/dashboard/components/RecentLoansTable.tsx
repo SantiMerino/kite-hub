@@ -12,9 +12,12 @@ type RecentLoansTableProps = {
 export default function RecentLoansTable({ loans }: RecentLoansTableProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-col items-start gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="text-base">Prestamos activos y vencidos</CardTitle>
-        <Link href="/admin/loans" className="text-xs text-blue-600 hover:underline">
+        <Link
+          href="/admin/loans"
+          className="text-xs text-foreground underline-offset-4 decoration-muted-foreground hover:underline"
+        >
           Ver todos
         </Link>
       </CardHeader>

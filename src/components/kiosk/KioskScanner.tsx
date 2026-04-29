@@ -198,7 +198,7 @@ export default function KioskScanner() {
             </Button>
             <div className="flex gap-2">
               <Input
-                placeholder="Ingresa ID manual (MAR_001)"
+                placeholder="Ingresa ID manual (MAR_001 o PRE_ABCD_001)"
                 value={toolManual}
                 onChange={(e) => setToolManual(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleToolManual()}
@@ -226,20 +226,20 @@ export default function KioskScanner() {
               <p className="text-xs text-muted-foreground">Verificando si esta herramienta requiere aprobación…</p>
             )}
             {!toolPreviewLoading && toolPreview?.requiresApproval && (
-              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left">
-                <p className="text-sm font-semibold text-purple-800">Esta herramienta requiere aprobación</p>
-                <p className="text-xs text-purple-700 mt-1">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left dark:border-border dark:bg-muted">
+                <p className="text-sm font-semibold text-purple-800 dark:text-foreground">Esta herramienta requiere aprobación</p>
+                <p className="text-xs text-purple-700 dark:text-muted-foreground mt-1">
                   Al escanear tu carné se enviará una solicitud pendiente para revisión del encargado.
                 </p>
-                <p className="text-xs text-purple-700 mt-1">
+                <p className="text-xs text-purple-700 dark:text-muted-foreground mt-1">
                   Próximamente enviaremos correo automático cuando la solicitud sea aprobada.
                 </p>
               </div>
             )}
             {!toolPreviewLoading && !toolPreview?.requiresApproval && toolPreview && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left">
-                <p className="text-sm font-semibold text-blue-800">Préstamo inmediato</p>
-                <p className="text-xs text-blue-700 mt-1">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left dark:border-border dark:bg-muted">
+                <p className="text-sm font-semibold text-blue-800 dark:text-foreground">Préstamo inmediato</p>
+                <p className="text-xs text-blue-700 dark:text-muted-foreground mt-1">
                   Esta herramienta no requiere aprobación previa.
                 </p>
               </div>
@@ -331,16 +331,40 @@ function StepCard({
 }) {
   const colorMap = {
     blue: {
-      border: done ? "border-blue-300" : active ? "border-blue-400" : "border-border",
-      bg: done ? "bg-blue-50" : active ? "bg-white" : "bg-muted/30",
-      num: done ? "bg-blue-600 text-white" : active ? "bg-blue-100 text-blue-700" : "bg-muted text-muted-foreground",
-      icon: "text-blue-600",
+      border: done
+        ? "border-blue-300 dark:border-border"
+        : active
+          ? "border-blue-400 dark:border-muted-foreground/35"
+          : "border-border",
+      bg: done
+        ? "bg-blue-50 dark:bg-muted"
+        : active
+          ? "bg-white dark:bg-card"
+          : "bg-muted/30",
+      num: done
+        ? "bg-blue-600 text-white dark:bg-primary dark:text-primary-foreground"
+        : active
+          ? "bg-blue-100 text-blue-800 dark:bg-muted dark:text-foreground"
+          : "bg-muted text-muted-foreground",
+      icon: "text-blue-600 dark:text-muted-foreground",
     },
     violet: {
-      border: done ? "border-violet-300" : active ? "border-violet-400" : "border-border",
-      bg: done ? "bg-violet-50" : active ? "bg-white" : "bg-muted/30",
-      num: done ? "bg-violet-600 text-white" : active ? "bg-violet-100 text-violet-700" : "bg-muted text-muted-foreground",
-      icon: "text-violet-600",
+      border: done
+        ? "border-violet-300 dark:border-border"
+        : active
+          ? "border-violet-400 dark:border-muted-foreground/35"
+          : "border-border",
+      bg: done
+        ? "bg-violet-50 dark:bg-muted"
+        : active
+          ? "bg-white dark:bg-card"
+          : "bg-muted/30",
+      num: done
+        ? "bg-violet-600 text-white dark:bg-primary dark:text-primary-foreground"
+        : active
+          ? "bg-violet-100 text-violet-800 dark:bg-muted dark:text-foreground"
+          : "bg-muted text-muted-foreground",
+      icon: "text-violet-600 dark:text-violet-400",
     },
   };
 

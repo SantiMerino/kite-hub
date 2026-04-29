@@ -34,7 +34,7 @@ export default function LoansTable({ loans, showOverdue = false, returned = fals
                 {loan.student.cardKey ? (
                   <Link
                     href={`/admin/audit/${encodeURIComponent(loan.student.cardKey)}`}
-                    className="text-blue-700 hover:underline"
+                    className="text-foreground underline-offset-4 decoration-muted-foreground hover:underline"
                   >
                     {loan.student.name ?? loan.student.cardKey}
                   </Link>

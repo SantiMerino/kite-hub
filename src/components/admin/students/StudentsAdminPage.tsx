@@ -57,7 +57,7 @@ export default function StudentsAdminPage() {
       <Card>
         <CardHeader className="pb-3 space-y-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="size-4 text-blue-600" />
+            <Users className="size-4 text-blue-600 dark:text-muted-foreground" />
             Todos los estudiantes
             <Badge variant="loan">{loading ? "…" : filteredStudents.length}</Badge>
             {!loading && students.length !== filteredStudents.length && (
