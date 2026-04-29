@@ -43,3 +43,17 @@ export function isValidCardKey(value: string): boolean {
 export function normalizeCardKey(value: string): string {
   return value.trim().toUpperCase();
 }
+
+/** Accepts PRE_001 and PRE_ABCD_001 formats. */
+export const TOOL_ID_REGEX = /^[A-Z0-9]{3}(?:_[A-Z0-9]{4})?_\d{3}$/;
+export const TOOL_ID_EMBEDDED_REGEX = /([A-Z0-9]{3}(?:_[A-Z0-9]{4})?_\d{3})/;
+
+export function isValidToolId(value: string): boolean {
+  return TOOL_ID_REGEX.test(value.trim().toUpperCase());
+}
+
+export function extractToolIdFromText(value: string): string | null {
+  const normalized = value.trim().toUpperCase();
+  const match = normalized.match(TOOL_ID_EMBEDDED_REGEX);
+  return match?.[1] ?? null;
+}

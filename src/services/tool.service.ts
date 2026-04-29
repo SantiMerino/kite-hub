@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { TOOL_ID_REGEX } from "@/lib/utils";
 
 type ToolCondition = "excellent" | "good" | "fair" | "poor";
 type PrefixSuggestion = { prefix: string; nextToolId: string };
 
-const TOOL_ID_PATTERN = /^([A-Z0-9]{3})_(\d{3})$/;
+const TOOL_ID_PATTERN = /^([A-Z0-9]{3})(?:_[A-Z0-9]{4})?_(\d{3})$/;
 
 export class ToolPrefixConflictError extends Error {
   suggestions: PrefixSuggestion[];
@@ -53,8 +54,10 @@ export async function createTool(
 
   let resolvedToolId = data.toolId?.trim().toUpperCase();
   if (resolvedToolId) {
-    if (!TOOL_ID_PATTERN.test(resolvedToolId)) {
-      throw new Error("El identificador debe seguir el formato PREFIX_NNN (ej. MAR_001).");
+    if (!TOOL_ID_REGEX.test(resolvedToolId)) {
+      throw new Error(
+        "El identificador debe seguir el formato PREFIX_NNN o PREFIX_ABCD_NNN (ej. MAR_001, PRE_ABCD_001)."
+      );
     }
   } else {
     resolvedToolId = await buildNextToolId(chosenPrefix);

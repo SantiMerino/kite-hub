@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
+import { TOOL_ID_REGEX } from "@/lib/utils";
 import { updateTool, deleteTool } from "@/services/tool.service";
 
 const CONDITION_VALUES = ["excellent", "good", "fair", "poor"] as const;
 
 const updateSchema = z.object({
-  toolId: z.string().regex(/^[A-Z0-9]{3}_\d{3}$/, "Formato PREFIX_NNN requerido").optional(),
+  toolId: z.string().regex(TOOL_ID_REGEX, "Formato PREFIX_NNN o PREFIX_ABCD_NNN requerido").optional(),
   prefix: z.string().max(10).optional(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),

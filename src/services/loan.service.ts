@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeCardKey, isValidCardKey } from "@/lib/utils";
+import { extractToolIdFromText, isValidCardKey, isValidToolId, normalizeCardKey } from "@/lib/utils";
 import { getBlockingSanctionForStudent } from "@/services/sanction.service";
 import {
   notifyLoanApprovedByEmail,
@@ -20,9 +20,6 @@ type LoanStatus =
   | "lost";
 
 const OPEN_LOAN_STATUSES: LoanStatus[] = ["active", "approved", "overdue"];
-const TOOL_ID_REGEX = /^[A-Z0-9]{3}_\d{3}$/;
-const EMBEDDED_TOOL_ID_REGEX = /([A-Z0-9]{3}_\d{3})/;
-
 export type LoanOrReturnResult =
   | { action: "borrowed"; loanId: number; toolName: string; studentName: string; expectedReturnDate: Date }
   | { action: "requested"; loanId: number; toolName: string; studentName: string; message: string }
@@ -54,7 +51,7 @@ export async function resolveToolForKioskPayload(toolPayload: string) {
   }
 
   const normalizedPayload = rawPayload.toUpperCase();
-  const embeddedToolId = normalizedPayload.match(EMBEDDED_TOOL_ID_REGEX)?.[1] ?? null;
+  const embeddedToolId = extractToolIdFromText(normalizedPayload);
 
   const byToolId = async (toolId: string) =>
     prisma.tool.findUnique({
@@ -68,7 +65,7 @@ export async function resolveToolForKioskPayload(toolPayload: string) {
       include: { inventory: true },
     });
 
-  if (TOOL_ID_REGEX.test(normalizedPayload)) {
+  if (isValidToolId(normalizedPayload)) {
     const directTool = await byToolId(normalizedPayload);
     if (directTool) return directTool;
   }
