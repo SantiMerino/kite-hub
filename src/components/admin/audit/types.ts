@@ -1,5 +1,6 @@
 export type AuditPageParams = {
   page?: string;
+  cardKey?: string;
 };
 
 export type AuditLogRow = {

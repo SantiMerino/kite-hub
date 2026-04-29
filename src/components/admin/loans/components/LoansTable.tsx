@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { daysOverdue, formatDate } from "@/lib/utils";
 import { LoanRow, LoanTableActions } from "../types";
+import Link from "next/link";
 
 type LoansTableProps = {
   loans: LoanRow[];
@@ -29,7 +30,18 @@ export default function LoansTable({ loans, showOverdue = false, returned = fals
         <tbody>
           {loans.map((loan) => (
             <tr key={loan.id} className="border-b last:border-0 hover:bg-muted/40">
-              <td className="py-2.5 pr-4 font-medium">{loan.student.name ?? loan.student.cardKey}</td>
+              <td className="py-2.5 pr-4 font-medium">
+                {loan.student.cardKey ? (
+                  <Link
+                    href={`/admin/audit/${encodeURIComponent(loan.student.cardKey)}`}
+                    className="text-blue-700 hover:underline"
+                  >
+                    {loan.student.name ?? loan.student.cardKey}
+                  </Link>
+                ) : (
+                  (loan.student.name ?? "Sin carné")
+                )}
+              </td>
               <td className="py-2.5 pr-4 text-muted-foreground"><span>{loan.tool.name}</span><br /><span className="text-xs font-mono">{loan.tool.toolId}</span></td>
               <td className="py-2.5 pr-4 text-muted-foreground">{formatDate(loan.borrowDate)}</td>
               <td className="py-2.5 pr-4 text-muted-foreground">{returned ? formatDate(loan.actualReturnDate) : formatDate(loan.expectedReturnDate)}</td>

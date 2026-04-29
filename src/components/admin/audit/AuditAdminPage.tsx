@@ -1,6 +1,9 @@
 import { ScrollText } from "lucide-react";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { AUDIT_PAGE_SIZE } from "./constants";
 import { AuditPageParams } from "./types";
 import AuditLogTable from "./components/AuditLogTable";
@@ -38,6 +41,31 @@ export default async function AuditAdminPage({ searchParams }: AuditAdminPagePro
           Registro completo de acciones en el sistema ({total.toLocaleString()} entradas).
         </p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Buscar bitacora personal por carné</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action="/admin/audit" method="get" className="flex flex-col gap-3 md:flex-row md:items-center">
+            <Input
+              name="cardKey"
+              defaultValue={params.cardKey ?? ""}
+              placeholder="Ejemplo: KEY_123456"
+              className="md:max-w-sm"
+            />
+            <Button type="submit">Buscar</Button>
+            {params.cardKey ? (
+              <Link
+                href={`/admin/audit/${encodeURIComponent(params.cardKey.trim().toUpperCase())}`}
+                className="text-sm text-blue-700 hover:underline"
+              >
+                Ir a bitacora de {params.cardKey.trim().toUpperCase()}
+              </Link>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
