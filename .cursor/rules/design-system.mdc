@@ -32,6 +32,7 @@ Al portar tokens desde Grow Hub, copia **la misma capa `:root` / `.dark` y el bl
 - Selector: clase **`.dark`** en un ancestro (patrón shadcn / `next-themes` si aplica). Variante Tailwind: `@custom-variant dark (&:is(.dark *));`
 - Regla obligatoria: todo archivo nuevo con UI (componentes, páginas, layouts, vistas, formularios y estados vacíos/error/loading) debe diseñarse para **light** y **dark** desde el inicio.
 - No se aceptan PRs con UI nueva solo para light; cada cambio visual debe incluir su equivalente en dark usando tokens semánticos (`background`, `foreground`, `card`, `muted`, `border`, `ring`, etc.) y verificación mínima de contraste.
+- **Contraste en `.dark`:** el tema usa superficies y bordes **neutros** (sin tinte azul). Evita **`text-blue-*`** y enlaces azules en oscuro; usa `text-foreground` / `text-muted-foreground` con subrayado, o `text-primary` (neutro claro en dark). Los colores de **dominio** (`blue`, `emerald`, etc.) pueden seguir en **modo claro**; en oscuro prioriza iconos y fondos sutiles o tokens semánticos.
 
 ---
 
@@ -53,7 +54,7 @@ Usar **solo** estas utilidades Tailwind mapeadas a variables (no hardcodear gris
 | `sidebar` y `sidebar-*` | Barra lateral (navegación por área del lab) |
 | `chart-1` … `chart-5` | Series en gráficos (Recharts + `ChartContainer` en `chart.tsx`) |
 
-Valores exactos: **OKLCH** en `globals.css` en `:root` y `.dark`. Al portar desde Grow Hub, copia los bloques completos.
+Valores exactos: **OKLCH** (y hex en `:root` claro) en `globals.css` en `:root` y `.dark`. El bloque `.dark` está retokemizado a neutros para legibilidad.
 
 ---
 
