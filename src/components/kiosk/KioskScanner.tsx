@@ -27,12 +27,21 @@ type ResultType =
       };
     };
 
+type ToolPreview = {
+  toolId: string;
+  toolName: string;
+  requiresApproval: boolean;
+};
+
 export default function KioskScanner() {
   const kioskPublicKey = process.env.NEXT_PUBLIC_KIOSK_KEY ?? "";
   const [step, setStep] = useState<Step>("idle");
   const [toolPayload, setToolPayload] = useState("");
   const [cardKey, setCardKey] = useState("");
   const [result, setResult] = useState<ResultType | null>(null);
+  const [toolPreview, setToolPreview] = useState<ToolPreview | null>(null);
+  const [toolPreviewLoading, setToolPreviewLoading] = useState(false);
+  const [toolPreviewError, setToolPreviewError] = useState("");
   const [showToolCamera, setShowToolCamera] = useState(false);
   const [showCardCamera, setShowCardCamera] = useState(false);
   const [toolManual, setToolManual] = useState("");
@@ -45,16 +54,48 @@ export default function KioskScanner() {
     setToolPayload("");
     setCardKey("");
     setResult(null);
+    setToolPreview(null);
+    setToolPreviewLoading(false);
+    setToolPreviewError("");
     setToolManual("");
     setCardManual("");
     idempotencyKeyRef.current = "";
   }, []);
 
+  const loadToolPreview = useCallback(async (tool: string) => {
+    if (!kioskPublicKey) return;
+    setToolPreviewLoading(true);
+    setToolPreviewError("");
+    setToolPreview(null);
+    try {
+      const res = await fetch("/api/kiosk/tool-preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-kiosk-key": kioskPublicKey,
+        },
+        body: JSON.stringify({ toolPayload: tool }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setToolPreviewError(data.error ?? "No se pudo verificar si requiere aprobación.");
+        return;
+      }
+      setToolPreview(data as ToolPreview);
+    } catch {
+      setToolPreviewError("No se pudo verificar si requiere aprobación en este momento.");
+    } finally {
+      setToolPreviewLoading(false);
+    }
+  }, [kioskPublicKey]);
+
   const handleToolScanned = useCallback((payload: string) => {
-    setToolPayload(payload.trim().toUpperCase());
+    const normalizedPayload = payload.trim().toUpperCase();
+    setToolPayload(normalizedPayload);
     setShowToolCamera(false);
     setStep("tool_scanned");
-  }, []);
+    void loadToolPreview(normalizedPayload);
+  }, [loadToolPreview]);
 
   const handleToolManual = useCallback(() => {
     const val = toolManual.trim().toUpperCase();
@@ -181,6 +222,31 @@ export default function KioskScanner() {
       >
         {step === "tool_scanned" && (
           <div className="space-y-3">
+            {toolPreviewLoading && (
+              <p className="text-xs text-muted-foreground">Verificando si esta herramienta requiere aprobación…</p>
+            )}
+            {!toolPreviewLoading && toolPreview?.requiresApproval && (
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left">
+                <p className="text-sm font-semibold text-purple-800">Esta herramienta requiere aprobación</p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Al escanear tu carné se enviará una solicitud pendiente para revisión del encargado.
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Próximamente enviaremos correo automático cuando la solicitud sea aprobada.
+                </p>
+              </div>
+            )}
+            {!toolPreviewLoading && !toolPreview?.requiresApproval && toolPreview && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left">
+                <p className="text-sm font-semibold text-blue-800">Préstamo inmediato</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Esta herramienta no requiere aprobación previa.
+                </p>
+              </div>
+            )}
+            {!toolPreviewLoading && toolPreviewError && (
+              <p className="text-xs text-amber-700">{toolPreviewError}</p>
+            )}
             <Button
               className="w-full bg-violet-600 hover:bg-violet-700"
               size="lg"
@@ -323,6 +389,10 @@ function ResultCard({
   const isConflict = result.action === "conflict";
   const isBlocked = result.action === "error" && Boolean(result.block);
   const isError = result.action === "error" && !result.block;
+  const conflictTitle =
+    result.action === "conflict" && result.message.toLowerCase().includes("solicitud pendiente")
+      ? "Solicitud pendiente"
+      : "Herramienta en préstamo";
   const remainingLabel =
     result.action === "error" && result.block?.endsAt
       ? formatRemainingMs(new Date(result.block.endsAt).getTime() - now)
@@ -378,12 +448,15 @@ function ResultCard({
             <strong>{result.studentName}</strong> solicitó: <strong>{result.toolName}</strong>
           </p>
           <p className="text-xs text-emerald-700">{result.message}</p>
+          <p className="text-xs text-emerald-700 mt-1">
+            Próximamente enviaremos un correo automático cuando el encargado apruebe la solicitud.
+          </p>
         </>
       )}
 
       {result.action === "conflict" && (
         <>
-          <h2 className="text-lg font-bold text-amber-800 mb-1">Herramienta no disponible</h2>
+          <h2 className="text-lg font-bold text-amber-800 mb-1">{conflictTitle}</h2>
           <p className="text-sm text-amber-700">{result.message}</p>
           {result.borrowerName && (
             <p className="text-xs text-amber-600 mt-1">Prestada a: {result.borrowerName}</p>

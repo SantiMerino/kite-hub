@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeCardKey, isValidCardKey } from "@/lib/utils";
 import { getBlockingSanctionForStudent } from "@/services/sanction.service";
-import { notifyLoanDeniedByEmail } from "@/services/loan-notification.service";
+import {
+  notifyLoanApprovedByEmail,
+  notifyLoanDeniedByEmail,
+  notifyLoanRequestedByEmail,
+} from "@/services/loan-notification.service";
 import { Prisma } from "@prisma/client";
 
 type ToolCondition = "excellent" | "good" | "fair" | "poor";
@@ -14,6 +18,10 @@ type LoanStatus =
   | "returned"
   | "overdue"
   | "lost";
+
+const OPEN_LOAN_STATUSES: LoanStatus[] = ["active", "approved", "overdue"];
+const TOOL_ID_REGEX = /^[A-Z0-9]{3}_\d{3}$/;
+const EMBEDDED_TOOL_ID_REGEX = /([A-Z0-9]{3}_\d{3})/;
 
 export type LoanOrReturnResult =
   | { action: "borrowed"; loanId: number; toolName: string; studentName: string; expectedReturnDate: Date }
@@ -37,6 +45,60 @@ export class LoanBlockedError extends Error {
     this.name = "LoanBlockedError";
     this.details = details;
   }
+}
+
+export async function resolveToolForKioskPayload(toolPayload: string) {
+  const rawPayload = toolPayload.trim();
+  if (!rawPayload) {
+    throw new Error("Payload de herramienta vacío.");
+  }
+
+  const normalizedPayload = rawPayload.toUpperCase();
+  const embeddedToolId = normalizedPayload.match(EMBEDDED_TOOL_ID_REGEX)?.[1] ?? null;
+
+  const byToolId = async (toolId: string) =>
+    prisma.tool.findUnique({
+      where: { toolId },
+      include: { inventory: true },
+    });
+
+  const byQrCode = async (qrCode: string) =>
+    prisma.tool.findFirst({
+      where: { qrCode },
+      include: { inventory: true },
+    });
+
+  if (TOOL_ID_REGEX.test(normalizedPayload)) {
+    const directTool = await byToolId(normalizedPayload);
+    if (directTool) return directTool;
+  }
+
+  const exactQrTool = await byQrCode(rawPayload);
+  if (exactQrTool) return exactQrTool;
+
+  if (normalizedPayload !== rawPayload) {
+    const normalizedQrTool = await byQrCode(normalizedPayload);
+    if (normalizedQrTool) return normalizedQrTool;
+  }
+
+  if (embeddedToolId) {
+    const embeddedTool = await byToolId(embeddedToolId);
+    if (embeddedTool) return embeddedTool;
+
+    const embeddedQrTool = await byQrCode(embeddedToolId);
+    if (embeddedQrTool) return embeddedQrTool;
+  }
+
+  throw new Error(`Herramienta no encontrada: ${toolPayload}`);
+}
+
+export async function getKioskToolPreview(toolPayload: string) {
+  const tool = await resolveToolForKioskPayload(toolPayload);
+  return {
+    toolId: tool.toolId,
+    toolName: tool.name,
+    requiresApproval: tool.requiresApproval,
+  };
 }
 
 export async function loanOrReturn(
@@ -89,15 +151,8 @@ export async function loanOrReturn(
     }
   }
 
-  // Resolve tool — payload is the toolId code (e.g. MAR_001)
-  const tool = await prisma.tool.findUnique({
-    where: { toolId: toolPayload.trim().toUpperCase() },
-    include: { inventory: true },
-  });
-
-  if (!tool) {
-    throw new Error(`Herramienta no encontrada: ${toolPayload}`);
-  }
+  // Resolve tool from kiosk payload (toolId, qrCode or embedded code in QR URL/text)
+  const tool = await resolveToolForKioskPayload(toolPayload);
 
   // Resolve student
   const student = await prisma.user.findUnique({ where: { cardKey } });
@@ -131,153 +186,177 @@ export async function loanOrReturn(
     });
   }
 
-  // Find active loan for this tool
-  const activeLoan = await prisma.loan.findFirst({
-    where: { toolId: tool.id, status: { in: ["active", "approved", "overdue"] } },
-    include: { student: true },
+  const myOpenLoan = await prisma.loan.findFirst({
+    where: {
+      toolId: tool.id,
+      studentId: student.id,
+      status: { in: OPEN_LOAN_STATUSES },
+    },
+    orderBy: { createdAt: "desc" },
   });
+
+  if (myOpenLoan) {
+    // ── RETURN FLOW ─────────────────────────────────────────────────────────
+    await prisma.$transaction(async (tx) => {
+      await tx.loan.update({
+        where: { id: myOpenLoan.id },
+        data: {
+          status: "returned",
+          actualReturnDate: new Date(),
+          conditionOnReturn: opts?.conditionOnReturn ?? "good",
+          notes: opts?.notes ?? myOpenLoan.notes,
+        },
+      });
+
+      await tx.inventory.update({
+        where: { toolId: tool.id },
+        data: {
+          availableQuantity: { increment: 1 },
+          borrowedQuantity: { decrement: 1 },
+          status: "available",
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: "RETURN",
+          entityType: "LOAN",
+          entityId: myOpenLoan.id,
+          userId: student.id,
+          toolId: tool.id,
+          details: JSON.stringify({
+            loanId: myOpenLoan.id,
+            studentId: student.id,
+            cardKey,
+            toolId: tool.toolId,
+            returnedAt: new Date(),
+          }),
+        },
+      });
+    });
+
+    return {
+      action: "returned",
+      loanId: myOpenLoan.id,
+      toolName: tool.name,
+      studentName: student.name ?? cardKey,
+    };
+  }
+
+  const otherOpenLoan = await prisma.loan.findFirst({
+    where: {
+      toolId: tool.id,
+      status: { in: OPEN_LOAN_STATUSES },
+    },
+    include: { student: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (otherOpenLoan) {
+    // ── CONFLICT: another student has the tool ──────────────────────────────
+    return {
+      action: "conflict",
+      message: `La herramienta "${tool.name}" ya está prestada a otro estudiante.`,
+      borrowerName: otherOpenLoan.student.name,
+    };
+  }
 
   const pendingLoan = await prisma.loan.findFirst({
     where: { toolId: tool.id, status: "requested" },
     include: { student: true },
   });
 
-  if (!activeLoan) {
-    // ── BORROW FLOW ──────────────────────────────────────────────────────────
-    if (pendingLoan) {
-      return {
-        action: "conflict",
-        message: `La herramienta "${tool.name}" ya tiene una solicitud pendiente de aprobación.`,
-        borrowerName: pendingLoan.student.name,
-      };
-    }
-
-    if (!tool.inventory || tool.inventory.availableQuantity < 1) {
-      throw new Error(`La herramienta "${tool.name}" no está disponible en este momento.`);
-    }
-
-    const expectedReturnDate = new Date();
-    expectedReturnDate.setDate(expectedReturnDate.getDate() + DEFAULT_LOAN_DAYS);
-
-    const result = await prisma.$transaction(async (tx) => {
-      const initialStatus: LoanStatus = tool.requiresApproval ? "requested" : "active";
-      const loan = await tx.loan.create({
-        data: {
-          toolId: tool.id,
-          studentId: student.id,
-          borrowDate: new Date(),
-          expectedReturnDate,
-          status: initialStatus,
-          conditionOnBorrow: opts?.conditionOnBorrow ?? "good",
-          notes: opts?.notes ?? null,
-          idempotencyKey: opts?.idempotencyKey ?? null,
-        },
-      });
-
-      if (!tool.requiresApproval) {
-        await tx.inventory.update({
-          where: { toolId: tool.id },
-          data: {
-            availableQuantity: { decrement: 1 },
-            borrowedQuantity: { increment: 1 },
-            status: "borrowed",
-          },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          action: tool.requiresApproval ? "LOAN_REQUESTED" : "BORROW",
-          entityType: "LOAN",
-          entityId: loan.id,
-          userId: student.id,
-          toolId: tool.id,
-          details: JSON.stringify({
-            loanId: loan.id,
-            studentId: student.id,
-            cardKey,
-            toolId: tool.toolId,
-            expectedReturnDate,
-            requiresApproval: tool.requiresApproval,
-          }),
-        },
-      });
-
-      return loan;
-    });
-
-    if (tool.requiresApproval) {
-      return {
-        action: "requested",
-        loanId: result.id,
-        toolName: tool.name,
-        studentName: student.name ?? cardKey,
-        message: "Solicitud enviada. Un administrador debe aprobar el préstamo.",
-      };
-    }
-
-    return {
-      action: "borrowed",
-      loanId: result.id,
-      toolName: tool.name,
-      studentName: student.name ?? cardKey,
-      expectedReturnDate,
-    };
-  }
-
-  if (activeLoan.studentId !== student.id) {
-    // ── CONFLICT: another student has the tool ────────────────────────────────
+  // ── BORROW FLOW ───────────────────────────────────────────────────────────
+  if (pendingLoan) {
     return {
       action: "conflict",
-      message: `La herramienta "${tool.name}" ya está prestada a otro estudiante.`,
-      borrowerName: activeLoan.student.name,
+      message: `La herramienta "${tool.name}" ya tiene una solicitud pendiente de aprobación.`,
+      borrowerName: pendingLoan.student.name,
     };
   }
 
-  // ── RETURN FLOW ───────────────────────────────────────────────────────────
-  await prisma.$transaction(async (tx) => {
-    await tx.loan.update({
-      where: { id: activeLoan.id },
+  if (!tool.inventory || tool.inventory.availableQuantity < 1) {
+    throw new Error(`La herramienta "${tool.name}" no está disponible en este momento.`);
+  }
+
+  const expectedReturnDate = new Date();
+  expectedReturnDate.setDate(expectedReturnDate.getDate() + DEFAULT_LOAN_DAYS);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const initialStatus: LoanStatus = tool.requiresApproval ? "requested" : "active";
+    const loan = await tx.loan.create({
       data: {
-        status: "returned",
-        actualReturnDate: new Date(),
-        conditionOnReturn: opts?.conditionOnReturn ?? "good",
-        notes: opts?.notes ?? activeLoan.notes,
+        toolId: tool.id,
+        studentId: student.id,
+        borrowDate: new Date(),
+        expectedReturnDate,
+        status: initialStatus,
+        conditionOnBorrow: opts?.conditionOnBorrow ?? "good",
+        notes: opts?.notes ?? null,
+        idempotencyKey: opts?.idempotencyKey ?? null,
       },
     });
 
-    await tx.inventory.update({
-      where: { toolId: tool.id },
-      data: {
-        availableQuantity: { increment: 1 },
-        borrowedQuantity: { decrement: 1 },
-        status: "available",
-      },
-    });
+    if (!tool.requiresApproval) {
+      await tx.inventory.update({
+        where: { toolId: tool.id },
+        data: {
+          availableQuantity: { decrement: 1 },
+          borrowedQuantity: { increment: 1 },
+          status: "borrowed",
+        },
+      });
+    }
 
     await tx.auditLog.create({
       data: {
-        action: "RETURN",
+        action: tool.requiresApproval ? "LOAN_REQUESTED" : "BORROW",
         entityType: "LOAN",
-        entityId: activeLoan.id,
+        entityId: loan.id,
         userId: student.id,
         toolId: tool.id,
         details: JSON.stringify({
-          loanId: activeLoan.id,
+          loanId: loan.id,
           studentId: student.id,
           cardKey,
           toolId: tool.toolId,
-          returnedAt: new Date(),
+          expectedReturnDate,
+          requiresApproval: tool.requiresApproval,
         }),
       },
     });
+
+    return loan;
   });
 
+  if (tool.requiresApproval) {
+    await notifyLoanRequestedByEmail({
+      loanId: result.id,
+      studentName: student.name ?? cardKey,
+      studentCardKey: cardKey,
+      studentEmail: student.email,
+      toolName: tool.name,
+      toolCode: tool.toolId,
+      toolCondition: tool.condition,
+      inventoryStatus: tool.inventory?.status ?? "available",
+      expectedReturnDate,
+    });
+
+    return {
+      action: "requested",
+      loanId: result.id,
+      toolName: tool.name,
+      studentName: student.name ?? cardKey,
+      message: "Solicitud enviada. Un administrador debe aprobar el préstamo.",
+    };
+  }
+
   return {
-    action: "returned",
-    loanId: activeLoan.id,
+    action: "borrowed",
+    loanId: result.id,
     toolName: tool.name,
     studentName: student.name ?? cardKey,
+    expectedReturnDate,
   };
 }
 
@@ -375,7 +454,10 @@ export async function adminReturnLoan(
 export async function approveLoan(loanId: number, actorId: number) {
   const loan = await prisma.loan.findUniqueOrThrow({
     where: { id: loanId },
-    include: { tool: true },
+    include: {
+      tool: { include: { inventory: true } },
+      student: true,
+    },
   });
 
   if (loan.status !== "requested") {
@@ -415,6 +497,18 @@ export async function approveLoan(loanId: number, actorId: number) {
         details: JSON.stringify({ loanId, actorId }),
       },
     });
+  });
+
+  await notifyLoanApprovedByEmail({
+    loanId,
+    studentName: loan.student.name ?? loan.student.cardKey ?? `student-${loan.studentId}`,
+    studentCardKey: loan.student.cardKey ?? `student-${loan.studentId}`,
+    studentEmail: loan.student.email,
+    toolName: loan.tool.name,
+    toolCode: loan.tool.toolId,
+    toolCondition: loan.tool.condition,
+    inventoryStatus: "borrowed",
+    expectedReturnDate: loan.expectedReturnDate,
   });
 }
 

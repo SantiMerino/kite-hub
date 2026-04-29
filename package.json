@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:test": "tsx scripts/test-db-connection.ts",
     "jobs:overdue": "tsx src/jobs/overdue.ts",
+    "email:test": "tsx scripts/test-resend-email.ts",
     "check:no-bypass-prod": "node scripts/check-no-dev-bypass-prod.js",
     "postinstall": "prisma generate"
   },
