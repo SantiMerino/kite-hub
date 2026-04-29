@@ -40,12 +40,14 @@ export default async function TopBar({ title }: { title?: string }) {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6 shrink-0">
-      <div>
-        {title && <h1 className="text-sm font-semibold">{title}</h1>}
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between gap-2 px-4 sm:px-6 shrink-0 min-w-0">
+      <div className="min-w-0">
+        {title && (
+          <h1 className="text-sm font-semibold truncate">{title}</h1>
+        )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <ThemeToggle />
 
         {/* Notifications bell */}
