@@ -22,7 +22,7 @@ USING (VALUES
   (3, 'seed|student001',  'KEY_000001','Carlos Ramírez',   'carlos@uni.local',  'student'),
   (4, 'seed|student002',  'KEY_000002','Laura Sánchez',    'laura@uni.local',   'student'),
   (5, 'seed|student003',  'KEY_000003','Diego Flores',     'diego@uni.local',   'student'),
-  (6, 'user',             'KEY_000112','Santiago Merino',  'santiago@lab.local','admin')
+  (6, 'user',             'KEY_000112','Santiago Merino',  'jose.merino@keyinstitute.edu.sv','admin')
   
 ) AS source (id, auth0Sub, cardKey, name, email, role)
 ON target.id = source.id
