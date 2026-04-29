@@ -5,6 +5,7 @@ import { Bell, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
+import ThemeToggle from "@/components/theme/theme-toggle";
 import {
   isDevAuthBypassEnabled,
   withDevDatabaseFallback,
@@ -39,12 +40,14 @@ export default async function TopBar({ title }: { title?: string }) {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-white flex items-center justify-between px-6 shrink-0">
+    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6 shrink-0">
       <div>
         {title && <h1 className="text-sm font-semibold">{title}</h1>}
       </div>
 
       <div className="flex items-center gap-3">
+        <ThemeToggle />
+
         {/* Notifications bell */}
         <Link href="/admin/audit" className="relative">
           <Button variant="ghost" size="icon">
@@ -65,9 +68,9 @@ export default async function TopBar({ title }: { title?: string }) {
                 {roleLabel[user.role] ?? user.role}
               </Badge>
             </div>
-            <div className="size-8 rounded-full bg-violet-100 flex items-center justify-center">
-              <User className="size-4 text-violet-600" />
-            </div>
+            <Link href="/admin/profile" className="size-8 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center">
+              <User className="size-4 text-violet-700 dark:text-violet-300" />
+            </Link>
           </div>
         )}
 

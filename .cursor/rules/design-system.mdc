@@ -30,6 +30,8 @@ Al portar tokens desde Grow Hub, copia **la misma capa `:root` / `.dark` y el bl
 ## Modo oscuro
 
 - Selector: clase **`.dark`** en un ancestro (patrón shadcn / `next-themes` si aplica). Variante Tailwind: `@custom-variant dark (&:is(.dark *));`
+- Regla obligatoria: todo archivo nuevo con UI (componentes, páginas, layouts, vistas, formularios y estados vacíos/error/loading) debe diseñarse para **light** y **dark** desde el inicio.
+- No se aceptan PRs con UI nueva solo para light; cada cambio visual debe incluir su equivalente en dark usando tokens semánticos (`background`, `foreground`, `card`, `muted`, `border`, `ring`, etc.) y verificación mínima de contraste.
 
 ---
 
