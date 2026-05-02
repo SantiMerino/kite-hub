@@ -226,7 +226,7 @@ export default function KioskScanner() {
               <p className="text-xs text-muted-foreground">Verificando si esta herramienta requiere aprobación…</p>
             )}
             {!toolPreviewLoading && toolPreview?.requiresApproval && (
-              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left dark:border-border dark:bg-muted">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left dark:border-purple-500/35 dark:bg-purple-950/40">
                 <p className="text-sm font-semibold text-purple-800 dark:text-foreground">Esta herramienta requiere aprobación</p>
                 <p className="text-xs text-purple-700 dark:text-muted-foreground mt-1">
                   Al escanear tu carné se enviará una solicitud pendiente para revisión del encargado.
@@ -237,7 +237,7 @@ export default function KioskScanner() {
               </div>
             )}
             {!toolPreviewLoading && !toolPreview?.requiresApproval && toolPreview && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left dark:border-border dark:bg-muted">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left dark:border-blue-500/30 dark:bg-blue-950/35">
                 <p className="text-sm font-semibold text-blue-800 dark:text-foreground">Préstamo inmediato</p>
                 <p className="text-xs text-blue-700 dark:text-muted-foreground mt-1">
                   Esta herramienta no requiere aprobación previa.
@@ -245,10 +245,10 @@ export default function KioskScanner() {
               </div>
             )}
             {!toolPreviewLoading && toolPreviewError && (
-              <p className="text-xs text-amber-700">{toolPreviewError}</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">{toolPreviewError}</p>
             )}
             <Button
-              className="w-full bg-violet-600 hover:bg-violet-700"
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-700 dark:hover:bg-violet-600"
               size="lg"
               onClick={() => setShowCardCamera(true)}
             >
@@ -279,7 +279,7 @@ export default function KioskScanner() {
       {/* ── Loading ───────────────────────────────────────────── */}
       {step === "loading" && (
         <div className="flex flex-col items-center gap-3 py-8 animate-fade-in">
-          <Loader2 className="size-8 text-violet-600 animate-spin" />
+          <Loader2 className="size-8 text-violet-600 dark:text-violet-400 animate-spin" />
           <p className="text-sm text-muted-foreground">Procesando…</p>
         </div>
       )}
@@ -332,39 +332,39 @@ function StepCard({
   const colorMap = {
     blue: {
       border: done
-        ? "border-blue-300 dark:border-border"
+        ? "border-blue-300 dark:border-blue-500/40"
         : active
-          ? "border-blue-400 dark:border-muted-foreground/35"
+          ? "border-blue-400 dark:border-blue-500/35"
           : "border-border",
       bg: done
-        ? "bg-blue-50 dark:bg-muted"
+        ? "bg-blue-50 dark:bg-blue-950/30"
         : active
           ? "bg-white dark:bg-card"
           : "bg-muted/30",
       num: done
-        ? "bg-blue-600 text-white dark:bg-primary dark:text-primary-foreground"
+        ? "bg-blue-600 text-white dark:bg-blue-700 dark:text-blue-50"
         : active
-          ? "bg-blue-100 text-blue-800 dark:bg-muted dark:text-foreground"
+          ? "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200"
           : "bg-muted text-muted-foreground",
-      icon: "text-blue-600 dark:text-muted-foreground",
+      icon: "text-blue-600 dark:text-blue-300",
     },
     violet: {
       border: done
-        ? "border-violet-300 dark:border-border"
+        ? "border-violet-300 dark:border-violet-500/40"
         : active
-          ? "border-violet-400 dark:border-muted-foreground/35"
+          ? "border-violet-400 dark:border-violet-500/35"
           : "border-border",
       bg: done
-        ? "bg-violet-50 dark:bg-muted"
+        ? "bg-violet-50 dark:bg-violet-950/30"
         : active
           ? "bg-white dark:bg-card"
           : "bg-muted/30",
       num: done
-        ? "bg-violet-600 text-white dark:bg-primary dark:text-primary-foreground"
+        ? "bg-violet-600 text-white dark:bg-violet-700 dark:text-violet-50"
         : active
-          ? "bg-violet-100 text-violet-800 dark:bg-muted dark:text-foreground"
+          ? "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200"
           : "bg-muted text-muted-foreground",
-      icon: "text-violet-600 dark:text-violet-400",
+      icon: "text-violet-600 dark:text-violet-300",
     },
   };
 
@@ -426,26 +426,37 @@ function ResultCard({
     <div
       className={`rounded-xl border-2 p-6 animate-scale-in text-center ${
         isPosive
-          ? "border-emerald-300 bg-emerald-50"
+          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800/70 dark:bg-emerald-950/45"
           : isConflict
-          ? "border-amber-300 bg-amber-50"
+          ? "border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40"
           : isBlocked
-          ? "border-purple-300 bg-purple-50"
-          : "border-red-300 bg-red-50"
+          ? "border-purple-300 bg-purple-50 dark:border-purple-800/60 dark:bg-purple-950/40"
+          : "border-red-300 bg-red-50 dark:border-destructive/45 dark:bg-destructive/12"
       }`}
     >
-      {isPosive && <CheckCircle2 className="size-12 text-emerald-600 mx-auto mb-3" />}
-      {isConflict && <AlertCircle className="size-12 text-amber-600 mx-auto mb-3" />}
-      {isBlocked && <AlertCircle className="size-12 text-purple-600 mx-auto mb-3" />}
-      {isError && <XCircle className="size-12 text-red-600 mx-auto mb-3" />}
+      {isPosive && (
+        <CheckCircle2 className="size-12 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
+      )}
+      {isConflict && (
+        <AlertCircle className="size-12 text-amber-600 dark:text-amber-400 mx-auto mb-3" />
+      )}
+      {isBlocked && (
+        <AlertCircle className="size-12 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
+      )}
+      {isError && (
+        <XCircle className="size-12 text-red-600 dark:text-destructive mx-auto mb-3" />
+      )}
 
       {result.action === "borrowed" && (
         <>
-          <h2 className="text-lg font-bold text-emerald-800 mb-1">¡Préstamo registrado!</h2>
-          <p className="text-sm text-emerald-700 mb-1">
-            <strong>{result.studentName}</strong> llevó: <strong>{result.toolName}</strong>
+          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">
+            ¡Préstamo registrado!
+          </h2>
+          <p className="text-sm text-emerald-700 dark:text-muted-foreground mb-1">
+            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> llevó:{" "}
+            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
           </p>
-          <p className="text-xs text-emerald-600">
+          <p className="text-xs text-emerald-600 dark:text-muted-foreground">
             Devuelve antes del{" "}
             {new Date(result.expectedReturnDate).toLocaleDateString("es-MX", {
               weekday: "short",
@@ -458,21 +469,25 @@ function ResultCard({
 
       {result.action === "returned" && (
         <>
-          <h2 className="text-lg font-bold text-emerald-800 mb-1">¡Devolución registrada!</h2>
-          <p className="text-sm text-emerald-700">
-            <strong>{result.studentName}</strong> devolvió: <strong>{result.toolName}</strong>
+          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">
+            ¡Devolución registrada!
+          </h2>
+          <p className="text-sm text-emerald-700 dark:text-muted-foreground">
+            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> devolvió:{" "}
+            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
           </p>
         </>
       )}
 
       {result.action === "requested" && (
         <>
-          <h2 className="text-lg font-bold text-emerald-800 mb-1">Solicitud registrada</h2>
-          <p className="text-sm text-emerald-700 mb-1">
-            <strong>{result.studentName}</strong> solicitó: <strong>{result.toolName}</strong>
+          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">Solicitud registrada</h2>
+          <p className="text-sm text-emerald-700 dark:text-muted-foreground mb-1">
+            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> solicitó:{" "}
+            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
           </p>
-          <p className="text-xs text-emerald-700">{result.message}</p>
-          <p className="text-xs text-emerald-700 mt-1">
+          <p className="text-xs text-emerald-700 dark:text-muted-foreground">{result.message}</p>
+          <p className="text-xs text-emerald-700 dark:text-muted-foreground mt-1">
             Próximamente enviaremos un correo automático cuando el encargado apruebe la solicitud.
           </p>
         </>
@@ -480,39 +495,41 @@ function ResultCard({
 
       {result.action === "conflict" && (
         <>
-          <h2 className="text-lg font-bold text-amber-800 mb-1">{conflictTitle}</h2>
-          <p className="text-sm text-amber-700">{result.message}</p>
+          <h2 className="text-lg font-bold text-amber-800 dark:text-foreground mb-1">{conflictTitle}</h2>
+          <p className="text-sm text-amber-700 dark:text-muted-foreground">{result.message}</p>
           {result.borrowerName && (
-            <p className="text-xs text-amber-600 mt-1">Prestada a: {result.borrowerName}</p>
+            <p className="text-xs text-amber-600 dark:text-muted-foreground mt-1">
+              Prestada a: {result.borrowerName}
+            </p>
           )}
         </>
       )}
 
       {result.action === "error" && result.block && (
         <>
-          <h2 className="text-lg font-bold text-purple-800 mb-1">Préstamo bloqueado</h2>
-          <p className="text-sm text-purple-700 mb-1">{result.block.reason}</p>
+          <h2 className="text-lg font-bold text-purple-800 dark:text-foreground mb-1">Préstamo bloqueado</h2>
+          <p className="text-sm text-purple-700 dark:text-muted-foreground mb-1">{result.block.reason}</p>
           {result.block.isPermanent ? (
-            <p className="text-xs text-purple-700 font-semibold">Bloqueo permanente</p>
+            <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold">Bloqueo permanente</p>
           ) : (
-            <p className="text-xs text-purple-700 font-semibold">
+            <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold">
               Bloqueo temporal {remainingLabel ? `(${remainingLabel} restantes)` : ""}
             </p>
           )}
-          <p className="text-xs text-purple-700 mt-2">{result.block.appealMessage}</p>
+          <p className="text-xs text-purple-700 dark:text-muted-foreground mt-2">{result.block.appealMessage}</p>
         </>
       )}
 
       {result.action === "error" && !result.block && (
         <>
-          <h2 className="text-lg font-bold text-red-800 mb-1">Error</h2>
-          <p className="text-sm text-red-700">{result.message}</p>
+          <h2 className="text-lg font-bold text-red-800 dark:text-foreground mb-1">Error</h2>
+          <p className="text-sm text-red-700 dark:text-muted-foreground">{result.message}</p>
         </>
       )}
 
       <Button
         variant="outline"
-        className="mt-5 gap-2"
+        className="mt-5 gap-2 border-border bg-background/80 dark:bg-card/80"
         onClick={onReset}
       >
         <RotateCcw className="size-4" />
