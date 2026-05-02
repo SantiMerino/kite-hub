@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import QRCameraModal from "@/components/kiosk/QRCameraModal";
+import { TOOLS_ADMIN_TABS, parseToolsAdminTabParam, type ToolsAdminTabId } from "@/components/admin/tools/tools-admin-tabs";
 import { cn, extractToolIdFromText } from "@/lib/utils";
 import {
   Wrench, Trash2, Save, PlusCircle, Camera, Filter,
@@ -257,6 +260,26 @@ function pickClusterAccent(category: string) {
 }
 
 export default function ToolsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeTab = useMemo(
+    () => parseToolsAdminTabParam(searchParams.get("tab")),
+    [searchParams],
+  );
+
+  const setActiveTab = useCallback(
+    (next: ToolsAdminTabId) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "herramientas") params.delete("tab");
+      else params.set("tab", next);
+      const q = params.toString();
+      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const [tools, setTools] = useState<ToolRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -634,23 +657,40 @@ export default function ToolsPage() {
     }
   }
 
+  const tabDescription = useMemo(() => {
+    const meta = TOOLS_ADMIN_TABS.find((t) => t.id === activeTab);
+    return meta?.description ?? "";
+  }, [activeTab]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Herramientas</h1>
-        <p className="text-muted-foreground text-sm">
-          Registro por escaneo/código, inventario unitario y configuración de aprobación.
-        </p>
+        <p className="text-muted-foreground text-sm">{tabDescription}</p>
       </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ToolsAdminTabId)} className="gap-4">
+        <TabsList aria-label="Secciones de inventario">
+          {TOOLS_ADMIN_TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+                <Icon className="size-4 shrink-0" />
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+
+        <TabsContent value="herramientas" className="mt-0 space-y-6">
       {message && (
-        <Card className="border-emerald-200 bg-emerald-50">
-          <CardContent className="py-3 text-sm text-emerald-700">{message}</CardContent>
+        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+          <CardContent className="py-3 text-sm text-emerald-700 dark:text-emerald-200">{message}</CardContent>
         </Card>
       )}
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="py-3 text-sm text-red-700">{error}</CardContent>
+        <Card className="border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30">
+          <CardContent className="py-3 text-sm text-red-700 dark:text-red-200">{error}</CardContent>
         </Card>
       )}
 
@@ -974,7 +1014,7 @@ export default function ToolsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-clip">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground">
@@ -1186,87 +1226,14 @@ export default function ToolsPage() {
           })
       )}
 
-      {/* ─── Category CRUD ──────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Tag className="size-4 text-[#9746FF]" />
-            Categorías de herramientas
-            <Badge variant="inventory">{categories.length}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {catCrudError && (
-            <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{catCrudError}</p>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="text-left py-2 pr-4 font-medium">Nombre</th>
-                  <th className="text-left py-2 pr-4 font-medium">Herramientas</th>
-                  <th className="text-left py-2 font-medium">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="py-2 pr-4 font-medium">
-                      {catEditId === cat.id ? (
-                        <Input value={catEditName} onChange={(e) => setCatEditName(e.target.value)} className="h-7 text-sm" autoFocus />
-                      ) : cat.name}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground text-xs">
-                      {tools.filter((t) => t.category === cat.name).length} herramienta(s)
-                    </td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-2">
-                        {catEditId === cat.id ? (
-                          <>
-                            <Button size="sm" onClick={() => void saveCatEdit(cat.id)}><Save className="size-3.5" /> Guardar</Button>
-                            <Button size="sm" variant="outline" onClick={() => setCatEditId(null)}>Cancelar</Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => { setCatEditId(cat.id); setCatEditName(cat.name); }}>Editar</Button>
-                            <Button size="sm" variant="destructive" onClick={() => void handleDeleteCategory(cat.id, cat.name)}>
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {categories.length === 0 && (
-                  <tr><td colSpan={3} className="py-4 text-center text-muted-foreground text-sm">Sin categorías. Crea la primera abajo.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <form
-            className="flex gap-2 items-end pt-1 border-t"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const input = (e.currentTarget.elements.namedItem("newCatName") as HTMLInputElement);
-              void handleCreateCategory(input.value.trim()).then(() => { input.value = ""; });
-            }}
-          >
-            <div className="flex-1 space-y-1">
-              <Label htmlFor="newCatName" className="text-xs">Nueva categoría</Label>
-              <Input id="newCatName" placeholder="ej. Medición" className="h-8" required />
-            </div>
-            <Button type="submit" size="sm" className="shrink-0"><Plus className="size-3.5" /> Agregar</Button>
-          </form>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* ─── Location CRUD ──────────────────────────────────────────────── */}
+        <TabsContent value="espacios" className="mt-0 space-y-6">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <MapPin className="size-4 text-[#006FFF]" />
-            Ubicaciones del laboratorio
+            <MapPin className="size-4 text-emerald-600 dark:text-emerald-400" />
+            Espacios del laboratorio
             <Badge variant="inventory">{locations.length}</Badge>
           </CardTitle>
         </CardHeader>
@@ -1274,7 +1241,7 @@ export default function ToolsPage() {
           {locCrudError && (
             <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{locCrudError}</p>
           )}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-clip">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
@@ -1364,6 +1331,84 @@ export default function ToolsPage() {
           </form>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="categorias" className="mt-0 space-y-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Tag className="size-4 text-violet-600 dark:text-violet-400" />
+            Categorías de herramientas
+            <Badge variant="inventory">{categories.length}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {catCrudError && (
+            <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{catCrudError}</p>
+          )}
+          <div className="overflow-x-auto overflow-y-clip">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-2 pr-4 font-medium">Nombre</th>
+                  <th className="text-left py-2 pr-4 font-medium">Herramientas</th>
+                  <th className="text-left py-2 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((cat) => (
+                  <tr key={cat.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="py-2 pr-4 font-medium">
+                      {catEditId === cat.id ? (
+                        <Input value={catEditName} onChange={(e) => setCatEditName(e.target.value)} className="h-7 text-sm" autoFocus />
+                      ) : cat.name}
+                    </td>
+                    <td className="py-2 pr-4 text-muted-foreground text-xs">
+                      {tools.filter((t) => t.category === cat.name).length} herramienta(s)
+                    </td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-2">
+                        {catEditId === cat.id ? (
+                          <>
+                            <Button size="sm" onClick={() => void saveCatEdit(cat.id)}><Save className="size-3.5" /> Guardar</Button>
+                            <Button size="sm" variant="outline" onClick={() => setCatEditId(null)}>Cancelar</Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => { setCatEditId(cat.id); setCatEditName(cat.name); }}>Editar</Button>
+                            <Button size="sm" variant="destructive" onClick={() => void handleDeleteCategory(cat.id, cat.name)}>
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {categories.length === 0 && (
+                  <tr><td colSpan={3} className="py-4 text-center text-muted-foreground text-sm">Sin categorías. Crea la primera abajo.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <form
+            className="flex gap-2 items-end pt-1 border-t"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const input = (e.currentTarget.elements.namedItem("newCatName") as HTMLInputElement);
+              void handleCreateCategory(input.value.trim()).then(() => { input.value = ""; });
+            }}
+          >
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="newCatName" className="text-xs">Nueva categoría</Label>
+              <Input id="newCatName" placeholder="ej. Medición" className="h-8" required />
+            </div>
+            <Button type="submit" size="sm" className="shrink-0"><Plus className="size-3.5" /> Agregar</Button>
+          </form>
+        </CardContent>
+      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
