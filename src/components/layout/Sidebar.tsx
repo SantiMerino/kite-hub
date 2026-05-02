@@ -14,7 +14,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className="hidden lg:flex flex-col w-60 border-r border-sidebar-border bg-sidebar text-sidebar-foreground min-h-screen shrink-0">
+      <aside className="hidden lg:flex h-full min-h-0 flex-col w-60 shrink-0 self-stretch border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-2.5 px-5 h-14 border-b border-border">
           <FlaskConical className="size-5 text-violet-600 dark:text-violet-400" />
           <span className="font-semibold text-sm tracking-tight">Kite Hub</span>
@@ -73,14 +73,14 @@ export default function Sidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex min-w-[4.25rem] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-medium leading-tight transition-colors",
+                    "flex min-w-17 shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-medium leading-tight transition-colors",
                     active
                       ? item.activeColor
                       : "text-muted-foreground hover:bg-muted/60"
                   )}
                 >
                   <Icon className={cn("size-5 shrink-0", active ? "" : item.color)} />
-                  <span className="max-w-[4.5rem] truncate text-center">{item.label}</span>
+                  <span className="max-w-18 truncate text-center">{item.label}</span>
                 </Link>
               );
             })}
