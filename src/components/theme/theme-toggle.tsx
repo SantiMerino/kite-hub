@@ -1,60 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
-type ThemeValue = "light" | "dark" | "system";
-
-const THEME_OPTIONS: Array<{ value: ThemeValue; label: string; icon: typeof Sun }> = [
-  { value: "light", label: "Claro", icon: Sun },
-  { value: "dark", label: "Oscuro", icon: Moon },
-  { value: "system", label: "Sistema", icon: Monitor },
-];
+function readResolvedClass(): "light" | "dark" {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
 
 export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="h-9 w-28 rounded-md border border-input bg-background" aria-hidden />
-    );
-  }
-
-  const selectedTheme = (theme ?? "system") as ThemeValue;
-  const SelectedIcon = THEME_OPTIONS.find((option) => option.value === selectedTheme)?.icon ?? Monitor;
+  const { setTheme } = useTheme();
 
   return (
-    <Select value={selectedTheme} onValueChange={(value) => setTheme(value as ThemeValue)}>
-      <SelectTrigger className="w-28 gap-2">
-        <SelectedIcon className="size-4" />
-        <SelectValue aria-label="Tema" />
-      </SelectTrigger>
-      <SelectContent align="end">
-        {THEME_OPTIONS.map((option) => {
-          const Icon = option.icon;
-          return (
-            <SelectItem key={option.value} value={option.value}>
-              <span className="inline-flex items-center gap-2">
-                <Icon className="size-4" />
-                {option.label}
-              </span>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="relative size-9"
+      onClick={() => {
+        const next = readResolvedClass() === "dark" ? "light" : "dark";
+        setTheme(next);
+      }}
+      aria-label="Cambiar entre tema claro y oscuro"
+    >
+      <Sun
+        className="size-4 absolute inset-0 m-auto scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90"
+        aria-hidden
+      />
+      <Moon
+        className="size-4 absolute inset-0 m-auto scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0"
+        aria-hidden
+      />
+    </Button>
   );
 }
