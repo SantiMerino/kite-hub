@@ -112,9 +112,21 @@ const USERS = [
 ] as const;
 
 const CATEGORIES = [
-  { name: "Medición",     description: "Instrumentos de medición eléctrica y electrónica" },
-  { name: "Ensamble",     description: "Herramientas para soldadura y ensamble de componentes" },
-  { name: "Alimentación", description: "Fuentes de poder y suministro de energía regulable" },
+  {
+    name: "Medición",
+    description: "Instrumentos de medición eléctrica y electrónica",
+    color: "#2563eb",
+  },
+  {
+    name: "Ensamble",
+    description: "Herramientas para soldadura y ensamble de componentes",
+    color: "#059669",
+  },
+  {
+    name: "Alimentación",
+    description: "Fuentes de poder y suministro de energía regulable",
+    color: "#7c3aed",
+  },
 ] as const;
 
 const LOCATIONS = [
@@ -285,8 +297,8 @@ async function upsertCategories() {
   for (const c of CATEGORIES) {
     await prisma.toolCategory.upsert({
       where: { name: c.name },
-      create: { name: c.name, description: c.description },
-      update: { description: c.description },
+      create: { name: c.name, description: c.description, color: c.color },
+      update: { description: c.description, color: c.color },
     });
   }
 }

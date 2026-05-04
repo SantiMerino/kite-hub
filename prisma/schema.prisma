@@ -244,6 +244,8 @@ model ToolCategory {
   id          Int      @id @default(autoincrement())
   name        String   @unique @db.NVarChar(100)
   description String?  @db.NVarChar(500)
+  /// Color de acento en UI (#RRGGBB). Null = paleta automática por nombre.
+  color       String?  @db.NVarChar(7)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
