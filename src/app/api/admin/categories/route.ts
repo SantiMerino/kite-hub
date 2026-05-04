@@ -3,9 +3,12 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { getAllCategories, createCategory } from "@/services/category.service";
 
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
+  color: hexColor.optional().nullable(),
 });
 
 export async function GET() {
@@ -27,7 +30,11 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Datos inválidos", issues: parsed.error.issues }, { status: 422 });
     }
-    const category = await createCategory(parsed.data.name, parsed.data.description);
+    const category = await createCategory(
+      parsed.data.name,
+      parsed.data.description,
+      parsed.data.color ?? null,
+    );
     return NextResponse.json(category, { status: 201 });
   } catch (err) {
     if (err instanceof NextResponse) return err;

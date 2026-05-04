@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
-import { updateCategory, deleteCategory } from "@/services/category.service";
+import { patchCategory, deleteCategory } from "@/services/category.service";
 
-const patchSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  description: z.string().max(500).optional(),
-});
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
+const patchSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().max(500).nullable().optional(),
+    color: hexColor.nullable().optional(),
+  })
+  .refine((d) => d.name !== undefined || d.description !== undefined || d.color !== undefined, {
+    message: "Sin cambios",
+  });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!parsed.success) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 422 });
     }
-    const cat = await updateCategory(Number(id), parsed.data.name ?? "", parsed.data.description);
+    const cat = await patchCategory(Number(id), parsed.data);
     return NextResponse.json(cat);
   } catch (err) {
     if (err instanceof NextResponse) return err;

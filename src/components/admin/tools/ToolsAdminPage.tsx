@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +52,12 @@ type ToolRow = {
 
 type PrefixSuggestion = { prefix: string; nextToolId: string };
 
-type ToolCategory = { id: number; name: string; description?: string | null };
+type ToolCategory = {
+  id: number;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+};
 type ToolLocation = { id: number; name: string; locationType: string; area: string };
 
 // ─── Inline combobox for categories / locations ───────────────────────────────
@@ -259,6 +272,76 @@ function pickClusterAccent(category: string) {
   return CLUSTER_ACCENTS[hash % CLUSTER_ACCENTS.length];
 }
 
+function rgbaFromHex(hex: string, a: number): string {
+  const m = /^#([0-9A-Fa-f]{6})$/.exec(hex.trim());
+  if (!m) return `rgba(37, 99, 235, ${a})`;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+type CategoryAccentResolved = {
+  card: { className: string; style: CSSProperties };
+  header: { className: string; style: CSSProperties };
+  clusterHeadTr: { className: string; style: CSSProperties };
+  clusterHeadTd: { className: string; style: CSSProperties };
+  dataRowMulti: { className: string; style: CSSProperties };
+  iconText: { className: string; style: CSSProperties };
+};
+
+function resolveCategoryAccent(
+  categoryName: string,
+  hex: string | null | undefined,
+): CategoryAccentResolved {
+  const custom = hex && /^#([0-9A-Fa-f]{6})$/.test(hex) ? hex : null;
+  if (custom) {
+    const c = custom;
+    return {
+      card: {
+        className: "border-2",
+        style: { borderColor: rgbaFromHex(c, 0.36) },
+      },
+      header: {
+        className: "",
+        style: { backgroundColor: rgbaFromHex(c, 0.1) },
+      },
+      clusterHeadTr: {
+        className: "border-b",
+        style: { backgroundColor: rgbaFromHex(c, 0.14) },
+      },
+      clusterHeadTd: {
+        className: "py-3 px-4 border-l-4",
+        style: { borderLeftColor: c },
+      },
+      dataRowMulti: {
+        className: "border-l-4 border-b last:border-0 hover:bg-muted/40",
+        style: {
+          borderLeftColor: c,
+          backgroundColor: rgbaFromHex(c, 0.07),
+        },
+      },
+      iconText: {
+        className: "",
+        style: { color: c },
+      },
+    };
+  }
+  const a = pickClusterAccent(categoryName);
+  return {
+    card: { className: a.cardBorder, style: {} },
+    header: { className: a.cardHeaderBg, style: {} },
+    clusterHeadTr: { className: `border-b ${a.softBg}`, style: {} },
+    clusterHeadTd: { className: `py-3 px-4 border-l-4 ${a.border}`, style: {} },
+    dataRowMulti: {
+      className: `border-l-4 ${a.border} ${a.rowBg} border-b last:border-0 hover:bg-muted/40`,
+      style: {},
+    },
+    iconText: { className: a.text, style: {} },
+  };
+}
+
 export default function ToolsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -317,7 +400,19 @@ export default function ToolsPage() {
   // Category edit state
   const [catEditId, setCatEditId] = useState<number | null>(null);
   const [catEditName, setCatEditName] = useState("");
+  const [catEditColorAuto, setCatEditColorAuto] = useState(true);
+  const [catEditHex, setCatEditHex] = useState("#2563eb");
   const [catCrudError, setCatCrudError] = useState<string | null>(null);
+  const [newCatColorAuto, setNewCatColorAuto] = useState(true);
+  const [newCatHex, setNewCatHex] = useState("#2563eb");
+
+  const categoryColorByName = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of categories) {
+      m.set(c.name, c.color ?? null);
+    }
+    return m;
+  }, [categories]);
 
   const applyScannedTool = useCallback((raw: string) => {
     setShowToolCamera(false);
@@ -521,12 +616,16 @@ export default function ToolsPage() {
   }
 
   // ─── Category CRUD ────────────────────────────────────────────────────────
-  async function handleCreateCategory(name: string) {
+  async function handleCreateCategory(name: string, opts?: { color?: string | null }) {
     setCatCrudError(null);
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const payload: { name: string; color?: string | null } = { name: trimmed };
+    if (opts && opts.color !== undefined) payload.color = opts.color;
     const res = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) { setCatCrudError(data.error ?? "Error al crear categoría."); return; }
@@ -551,12 +650,16 @@ export default function ToolsPage() {
     const res = await fetch(`/api/admin/categories/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: catEditName.trim() }),
+      body: JSON.stringify({
+        name: catEditName.trim(),
+        color: catEditColorAuto ? null : catEditHex,
+      }),
     });
     const data = await res.json();
     if (!res.ok) { setCatCrudError(data.error ?? "Error al actualizar."); return; }
     setCatEditId(null);
     await loadCategories();
+    await loadTools();
   }
 
   // ─── Location CRUD ────────────────────────────────────────────────────────
@@ -1003,12 +1106,12 @@ export default function ToolsPage() {
           .sort(([a], [b]) => a.localeCompare(b, "es"))
           .map(([category, categoryTools]) => {
             const clusters = clusterToolsByPrefix(categoryTools);
-            const accent = pickClusterAccent(category);
+            const ac = resolveCategoryAccent(category, categoryColorByName.get(category) ?? null);
             return (
-          <Card key={category} className={accent.cardBorder}>
-            <CardHeader className={`pb-3 ${accent.cardHeaderBg}`}>
+          <Card key={category} className={ac.card.className} style={ac.card.style}>
+            <CardHeader className={cn("pb-3", ac.header.className)} style={ac.header.style}>
               <CardTitle className="text-base flex items-center gap-2">
-                <Wrench className={`size-4 ${accent.text}`} />
+                <Wrench className={cn("size-4", ac.iconText.className)} style={ac.iconText.style} />
                 {category}
                 <Badge variant="inventory">{categoryTools.length}</Badge>
               </CardTitle>
@@ -1041,9 +1144,14 @@ export default function ToolsPage() {
                       const headerRow = multi ? (
                         <tr
                           key={`hdr-${clusterKey}`}
-                          className={`border-b ${accent.softBg}`}
+                          className={ac.clusterHeadTr.className}
+                          style={ac.clusterHeadTr.style}
                         >
-                          <td colSpan={7} className={`py-3 px-4 border-l-4 ${accent.border}`}>
+                          <td
+                            colSpan={7}
+                            className={ac.clusterHeadTd.className}
+                            style={ac.clusterHeadTd.style}
+                          >
                             <button
                               type="button"
                               onClick={() => toggleCluster(clusterKey)}
@@ -1053,9 +1161,9 @@ export default function ToolsPage() {
                             >
                               <div className="flex flex-wrap items-center gap-2.5 text-sm">
                                 {isExpanded ? (
-                                  <ChevronDown className={`size-4 ${accent.text}`} />
+                                  <ChevronDown className={cn("size-4", ac.iconText.className)} style={ac.iconText.style} />
                                 ) : (
-                                  <ChevronRight className={`size-4 ${accent.text}`} />
+                                  <ChevronRight className={cn("size-4", ac.iconText.className)} style={ac.iconText.style} />
                                 )}
                                 <Badge variant="inventory" className="font-mono">
                                   {cluster.prefix}
@@ -1077,9 +1185,11 @@ export default function ToolsPage() {
                         <tr
                           key={tool.id}
                           className={
-                            (multi ? `border-l-4 ${accent.border} ${accent.rowBg} ` : "") +
-                            "border-b last:border-0 hover:bg-muted/40"
+                            multi
+                              ? ac.dataRowMulti.className
+                              : "border-b last:border-0 hover:bg-muted/40"
                           }
+                          style={multi ? ac.dataRowMulti.style : undefined}
                         >
                           <td className={`py-2.5 pr-4 font-mono text-xs ${multi ? "pl-4" : "text-muted-foreground"}`}>
                             {isEditing ? (
@@ -1350,6 +1460,7 @@ export default function ToolsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-2 pr-4 font-medium w-14">Color</th>
                   <th className="text-left py-2 pr-4 font-medium">Nombre</th>
                   <th className="text-left py-2 pr-4 font-medium">Herramientas</th>
                   <th className="text-left py-2 font-medium">Acciones</th>
@@ -1358,6 +1469,41 @@ export default function ToolsPage() {
               <tbody>
                 {categories.map((cat) => (
                   <tr key={cat.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="py-2 pr-4 align-middle">
+                      {catEditId === cat.id ? (
+                        <div className="flex flex-col gap-2 min-w-36">
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={catEditColorAuto}
+                              onChange={(e) => setCatEditColorAuto(e.target.checked)}
+                              className="rounded border-input"
+                            />
+                            Automático
+                          </label>
+                          <input
+                            type="color"
+                            value={catEditHex}
+                            onChange={(e) => {
+                              setCatEditHex(e.target.value);
+                              setCatEditColorAuto(false);
+                            }}
+                            disabled={catEditColorAuto}
+                            className="h-9 w-full max-w-22 cursor-pointer rounded-md border border-input bg-background p-1 disabled:opacity-40"
+                            aria-label="Color de categoría"
+                          />
+                        </div>
+                      ) : (
+                        <span
+                          className={cn(
+                            "inline-block size-7 rounded-md border border-border shadow-sm",
+                            !cat.color && "bg-muted",
+                          )}
+                          style={cat.color ? { backgroundColor: cat.color } : undefined}
+                          title={cat.color ? cat.color : "Color automático según nombre"}
+                        />
+                      )}
+                    </td>
                     <td className="py-2 pr-4 font-medium">
                       {catEditId === cat.id ? (
                         <Input value={catEditName} onChange={(e) => setCatEditName(e.target.value)} className="h-7 text-sm" autoFocus />
@@ -1371,11 +1517,30 @@ export default function ToolsPage() {
                         {catEditId === cat.id ? (
                           <>
                             <Button size="sm" onClick={() => void saveCatEdit(cat.id)}><Save className="size-3.5" /> Guardar</Button>
-                            <Button size="sm" variant="outline" onClick={() => setCatEditId(null)}>Cancelar</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCatEditId(null);
+                              }}
+                            >
+                              Cancelar
+                            </Button>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => { setCatEditId(cat.id); setCatEditName(cat.name); }}>Editar</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCatEditId(cat.id);
+                                setCatEditName(cat.name);
+                                setCatEditColorAuto(!cat.color);
+                                setCatEditHex(cat.color ?? "#2563eb");
+                              }}
+                            >
+                              Editar
+                            </Button>
                             <Button size="sm" variant="destructive" onClick={() => void handleDeleteCategory(cat.id, cat.name)}>
                               <Trash2 className="size-3.5" />
                             </Button>
@@ -1386,24 +1551,56 @@ export default function ToolsPage() {
                   </tr>
                 ))}
                 {categories.length === 0 && (
-                  <tr><td colSpan={3} className="py-4 text-center text-muted-foreground text-sm">Sin categorías. Crea la primera abajo.</td></tr>
+                  <tr><td colSpan={4} className="py-4 text-center text-muted-foreground text-sm">Sin categorías. Crea la primera abajo.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
           <form
-            className="flex gap-2 items-end pt-1 border-t"
+            className="flex flex-col gap-3 pt-3 border-t sm:flex-row sm:flex-wrap sm:items-end"
             onSubmit={(e) => {
               e.preventDefault();
               const input = (e.currentTarget.elements.namedItem("newCatName") as HTMLInputElement);
-              void handleCreateCategory(input.value.trim()).then(() => { input.value = ""; });
+              void handleCreateCategory(input.value.trim(), {
+                color: newCatColorAuto ? null : newCatHex,
+              }).then(() => {
+                input.value = "";
+                setNewCatColorAuto(true);
+              });
             }}
           >
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 min-w-48 space-y-1">
               <Label htmlFor="newCatName" className="text-xs">Nueva categoría</Label>
               <Input id="newCatName" placeholder="ej. Medición" className="h-8" required />
             </div>
-            <Button type="submit" size="sm" className="shrink-0"><Plus className="size-3.5" /> Agregar</Button>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Color en tablas</Label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={newCatColorAuto}
+                      onChange={(e) => setNewCatColorAuto(e.target.checked)}
+                      className="rounded border-input"
+                    />
+                    Auto
+                  </label>
+                  <input
+                    type="color"
+                    value={newCatHex}
+                    onChange={(e) => {
+                      setNewCatHex(e.target.value);
+                      setNewCatColorAuto(false);
+                    }}
+                    disabled={newCatColorAuto}
+                    className="h-8 w-14 cursor-pointer rounded-md border border-input bg-background p-0.5 disabled:opacity-40"
+                    aria-label="Color de la nueva categoría"
+                  />
+                </div>
+              </div>
+              <Button type="submit" size="sm" className="shrink-0"><Plus className="size-3.5" /> Agregar</Button>
+            </div>
           </form>
         </CardContent>
       </Card>
