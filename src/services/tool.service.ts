@@ -140,15 +140,36 @@ export async function updateTool(
 
 export async function deleteTool(id: number, actorId: number) {
   await prisma.$transaction(async (tx) => {
+    const loans = await tx.loan.findMany({
+      where: { toolId: id },
+      select: { id: true },
+    });
+    const loanIds = loans.map((l) => l.id);
+
+    if (loanIds.length > 0) {
+      await tx.alert.deleteMany({ where: { loanId: { in: loanIds } } });
+      await tx.sanction.deleteMany({ where: { loanId: { in: loanIds } } });
+      await tx.loan.deleteMany({ where: { toolId: id } });
+    }
+
     await tx.inventory.deleteMany({ where: { toolId: id } });
+    await tx.auditLog.updateMany({
+      where: { toolId: id },
+      data: { toolId: null },
+    });
+
     await tx.tool.delete({ where: { id } });
+
     await tx.auditLog.create({
       data: {
         action: "DELETE_TOOL",
         entityType: "TOOL",
         entityId: id,
         userId: actorId,
-        details: JSON.stringify({ deletedToolId: id }),
+        details: JSON.stringify({
+          deletedToolId: id,
+          removedLoanRows: loanIds.length,
+        }),
       },
     });
   });
