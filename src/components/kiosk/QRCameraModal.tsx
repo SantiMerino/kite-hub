@@ -150,9 +150,9 @@ export default function QRCameraModal({ title, onScan, onClose }: QRCameraModalP
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl animate-scale-in">
+      <div className="w-full max-w-sm bg-card text-card-foreground rounded-2xl overflow-hidden border border-border shadow-2xl animate-scale-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <span className="font-semibold text-sm">{title}</span>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="size-4" />
@@ -168,7 +168,7 @@ export default function QRCameraModal({ title, onScan, onClose }: QRCameraModalP
           )}
 
           {cameraError ? (
-            <div className="p-6 flex flex-col items-center gap-3 text-center">
+            <div className="p-6 flex flex-col items-center gap-3 text-center bg-card">
               <CameraOff className="size-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{cameraError}</p>
             </div>
@@ -194,7 +194,7 @@ export default function QRCameraModal({ title, onScan, onClose }: QRCameraModalP
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t text-center">
+        <div className="px-4 py-3 border-t border-border text-center bg-card">
           <p className="text-xs text-muted-foreground">
             Centra el código QR dentro del recuadro
           </p>

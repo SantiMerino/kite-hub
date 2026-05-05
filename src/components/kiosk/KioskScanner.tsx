@@ -1,11 +1,20 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { QrCode, CreditCard, CheckCircle2, XCircle, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
+import {
+  QrCode,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Loader2,
+  Clock,
+  Ban,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { isValidCardKey, normalizeCardKey } from "@/lib/utils";
+import { kiteError, kiteWarning, getKiteToastFill } from "@/lib/kite-sileo";
 import QRCameraModal from "./QRCameraModal";
 
 type Step = "idle" | "tool_scanned" | "card_scanned" | "loading" | "result";
@@ -23,7 +32,6 @@ type ResultType =
         isPermanent: boolean;
         endsAt: string | null;
         startsAt: string | null;
-        appealMessage: string;
       };
     };
 
@@ -41,7 +49,6 @@ export default function KioskScanner() {
   const [result, setResult] = useState<ResultType | null>(null);
   const [toolPreview, setToolPreview] = useState<ToolPreview | null>(null);
   const [toolPreviewLoading, setToolPreviewLoading] = useState(false);
-  const [toolPreviewError, setToolPreviewError] = useState("");
   const [showToolCamera, setShowToolCamera] = useState(false);
   const [showCardCamera, setShowCardCamera] = useState(false);
   const [toolManual, setToolManual] = useState("");
@@ -56,7 +63,6 @@ export default function KioskScanner() {
     setResult(null);
     setToolPreview(null);
     setToolPreviewLoading(false);
-    setToolPreviewError("");
     setToolManual("");
     setCardManual("");
     idempotencyKeyRef.current = "";
@@ -65,7 +71,6 @@ export default function KioskScanner() {
   const loadToolPreview = useCallback(async (tool: string) => {
     if (!kioskPublicKey) return;
     setToolPreviewLoading(true);
-    setToolPreviewError("");
     setToolPreview(null);
     try {
       const res = await fetch("/api/kiosk/tool-preview", {
@@ -78,246 +83,246 @@ export default function KioskScanner() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setToolPreviewError(data.error ?? "No se pudo verificar si requiere aprobación.");
+        kiteWarning({
+          title: "Sin datos de la herramienta",
+          description: data.error ?? "Puedes seguir con el carné.",
+        });
         return;
       }
       setToolPreview(data as ToolPreview);
     } catch {
-      setToolPreviewError("No se pudo verificar si requiere aprobación en este momento.");
+      kiteWarning({
+        title: "Sin conexión",
+        description: "No se pudo verificar la herramienta. Puedes continuar.",
+      });
     } finally {
       setToolPreviewLoading(false);
     }
   }, [kioskPublicKey]);
 
-  const handleToolScanned = useCallback((payload: string) => {
-    const normalizedPayload = payload.trim().toUpperCase();
-    setToolPayload(normalizedPayload);
-    setShowToolCamera(false);
-    setStep("tool_scanned");
-    void loadToolPreview(normalizedPayload);
-  }, [loadToolPreview]);
+  const handleToolScanned = useCallback(
+    (payload: string) => {
+      const normalizedPayload = payload.trim().toUpperCase();
+      setToolPayload(normalizedPayload);
+      setShowToolCamera(false);
+      setStep("tool_scanned");
+      void loadToolPreview(normalizedPayload);
+    },
+    [loadToolPreview],
+  );
 
   const handleToolManual = useCallback(() => {
     const val = toolManual.trim().toUpperCase();
-    if (!val) return;
+    if (!val) {
+      kiteWarning({ title: "Falta el ID", description: "Ej. MAR_001" });
+      return;
+    }
     handleToolScanned(val);
   }, [toolManual, handleToolScanned]);
 
-  const handleCardScanned = useCallback(async (raw: string) => {
-    const key = normalizeCardKey(raw);
-    setShowCardCamera(false);
+  const submitLoanOrReturn = useCallback(
+    async (tool: string, card: string) => {
+      if (!kioskPublicKey) {
+        kiteError({
+          title: "Kiosk no configurado",
+          description: "Falta NEXT_PUBLIC_KIOSK_KEY. Avisa al encargado.",
+        });
+        return;
+      }
 
-    if (!isValidCardKey(key)) {
-      setResult({ action: "error", message: `Formato de carné inválido: ${key}. Se esperaba KEY_XXXXXX.` });
+      setStep("loading");
+      idempotencyKeyRef.current = `${tool}:${card}:${Date.now()}`;
+
+      try {
+        const res = await fetch("/api/kiosk/loan-or-return", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-kiosk-key": kioskPublicKey,
+            "idempotency-key": idempotencyKeyRef.current,
+          },
+          body: JSON.stringify({ toolPayload: tool, cardKey: card }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (data.blocked) {
+            setResult({
+              action: "error",
+              message: data.error ?? "Acceso bloqueado.",
+              block: data.block,
+            });
+          } else {
+            setResult({ action: "error", message: data.error ?? "Error desconocido" });
+          }
+        } else {
+          setResult(data as ResultType);
+        }
+      } catch {
+        setResult({ action: "error", message: "Sin conexión. Reintenta." });
+      }
+
       setStep("result");
-      return;
-    }
+    },
+    [kioskPublicKey],
+  );
 
-    setCardKey(key);
-    await submitLoanOrReturn(toolPayload, key);
-  }, [toolPayload]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleCardScanned = useCallback(
+    async (raw: string) => {
+      const key = normalizeCardKey(raw);
+      setShowCardCamera(false);
+
+      if (!isValidCardKey(key)) {
+        kiteWarning({
+          title: "Carné no válido",
+          description: "Formato KEY_000000",
+        });
+        return;
+      }
+
+      setCardKey(key);
+      await submitLoanOrReturn(toolPayload, key);
+    },
+    [toolPayload, submitLoanOrReturn],
+  );
 
   const handleCardManual = useCallback(async () => {
     const key = normalizeCardKey(cardManual);
     if (!isValidCardKey(key)) {
-      setResult({ action: "error", message: `Formato de carné inválido. Usa el formato KEY_000000.` });
-      setStep("result");
+      kiteWarning({
+        title: "Carné no válido",
+        description: "Formato KEY_000000",
+      });
       return;
     }
     setCardKey(key);
     await submitLoanOrReturn(toolPayload, key);
-  }, [cardManual, toolPayload]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const submitLoanOrReturn = useCallback(async (tool: string, card: string) => {
-    if (!kioskPublicKey) {
-      setResult({
-        action: "error",
-        message: "Falta NEXT_PUBLIC_KIOSK_KEY en el entorno de desarrollo. Configúrala para usar el kiosk.",
-      });
-      setStep("result");
-      return;
-    }
-
-    setStep("loading");
-    idempotencyKeyRef.current = `${tool}:${card}:${Date.now()}`;
-
-    try {
-      const res = await fetch("/api/kiosk/loan-or-return", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-kiosk-key": kioskPublicKey,
-          "idempotency-key": idempotencyKeyRef.current,
-        },
-        body: JSON.stringify({ toolPayload: tool, cardKey: card }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.blocked) {
-          setResult({
-            action: "error",
-            message: data.error ?? "Acceso bloqueado.",
-            block: data.block,
-          });
-        } else {
-          setResult({ action: "error", message: data.error ?? "Error desconocido" });
-        }
-      } else {
-        setResult(data as ResultType);
-      }
-    } catch {
-      setResult({ action: "error", message: "No se pudo conectar con el servidor. Intenta de nuevo." });
-    }
-
-    setStep("result");
-  }, [kioskPublicKey]);
+  }, [cardManual, toolPayload, submitLoanOrReturn]);
 
   return (
-    <div className="w-full space-y-4">
-      {/* ── Step 1: Tool scan ─────────────────────────────────── */}
-      <StepCard
+    <div className="w-full space-y-5">
+      <KioskStepToast
         stepNumber={1}
         title="Herramienta"
-        icon={<QrCode className="size-5" />}
+        icon={<QrCode className="size-7" strokeWidth={2.25} />}
         done={!!toolPayload}
         active={step === "idle"}
         value={toolPayload}
-        color="blue"
+        dimmed={false}
       >
         {step === "idle" && (
-          <div className="space-y-3">
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={() => setShowToolCamera(true)}
-            >
-              <QrCode className="size-4" />
-              Escanear QR de herramienta
+          <div className="space-y-4 pt-1">
+            <Button className="w-full min-h-14 text-lg font-semibold" size="lg" onClick={() => setShowToolCamera(true)}>
+              <QrCode className="size-5 shrink-0" />
+              Escanear QR
             </Button>
             <div className="flex gap-2">
               <Input
-                placeholder="Ingresa ID manual (MAR_001 o PRE_ABCD_001)"
+                placeholder="O escribe el ID (MAR_001)"
                 value={toolManual}
                 onChange={(e) => setToolManual(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleToolManual()}
-                className="font-mono uppercase"
+                className="font-mono uppercase h-12 text-base"
               />
-              <Button variant="outline" onClick={handleToolManual}>OK</Button>
+              <Button variant="outline" className="h-12 px-5 text-base shrink-0" onClick={handleToolManual}>
+                OK
+              </Button>
             </div>
           </div>
         )}
-      </StepCard>
+      </KioskStepToast>
 
-      {/* ── Step 2: Card scan ─────────────────────────────────── */}
-      <StepCard
+      <KioskStepToast
         stepNumber={2}
-        title="Carné estudiantil"
-        icon={<CreditCard className="size-5" />}
+        title="Carné"
+        icon={<CreditCard className="size-7" strokeWidth={2.25} />}
         done={!!cardKey}
         active={step === "tool_scanned"}
         value={cardKey}
-        color="violet"
+        dimmed={step === "idle"}
       >
         {step === "tool_scanned" && (
-          <div className="space-y-3">
+          <div className="space-y-4 pt-1">
             {toolPreviewLoading && (
-              <p className="text-xs text-muted-foreground">Verificando si esta herramienta requiere aprobación…</p>
+              <StatusPill variant="neutral">
+                <Loader2 className="size-5 animate-spin shrink-0" />
+                <span className="text-base font-medium">Comprobando…</span>
+              </StatusPill>
             )}
             {!toolPreviewLoading && toolPreview?.requiresApproval && (
-              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-left dark:border-purple-500/35 dark:bg-purple-950/40">
-                <p className="text-sm font-semibold text-purple-800 dark:text-foreground">Esta herramienta requiere aprobación</p>
-                <p className="text-xs text-purple-700 dark:text-muted-foreground mt-1">
-                  Al escanear tu carné se enviará una solicitud pendiente para revisión del encargado.
-                </p>
-                <p className="text-xs text-purple-700 dark:text-muted-foreground mt-1">
-                  Próximamente enviaremos correo automático cuando la solicitud sea aprobada.
-                </p>
-              </div>
+              <StatusPill variant="pending">
+                <Clock className="size-6 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="min-w-0 text-left">
+                  <p className="text-lg font-bold text-foreground">Requiere aprobación</p>
+                  <p className="text-sm text-muted-foreground">Al pasar el carné queda en cola.</p>
+                </div>
+              </StatusPill>
             )}
             {!toolPreviewLoading && !toolPreview?.requiresApproval && toolPreview && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left dark:border-blue-500/30 dark:bg-blue-950/35">
-                <p className="text-sm font-semibold text-blue-800 dark:text-foreground">Préstamo inmediato</p>
-                <p className="text-xs text-blue-700 dark:text-muted-foreground mt-1">
-                  Esta herramienta no requiere aprobación previa.
-                </p>
-              </div>
-            )}
-            {!toolPreviewLoading && toolPreviewError && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">{toolPreviewError}</p>
+              <StatusPill variant="pass">
+                <CheckCircle2 className="size-6 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="min-w-0 text-left">
+                  <p className="text-lg font-bold text-foreground">Listo para préstamo</p>
+                  <p className="text-sm text-muted-foreground">Sin aprobación previa.</p>
+                </div>
+              </StatusPill>
             )}
             <Button
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-700 dark:hover:bg-violet-600"
+              className="w-full min-h-14 text-lg font-semibold"
               size="lg"
               onClick={() => setShowCardCamera(true)}
             >
-              <QrCode className="size-4" />
-              Escanear QR del carné
+              <QrCode className="size-5 shrink-0" />
+              Escanear carné
             </Button>
             <div className="flex gap-2">
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="card-manual" className="text-xs text-muted-foreground">
-                  Ingresa tu carné manualmente
-                </Label>
-                <Input
-                  id="card-manual"
-                  placeholder="KEY_000000"
-                  value={cardManual}
-                  onChange={(e) => setCardManual(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === "Enter" && handleCardManual()}
-                  className="font-mono uppercase"
-                  maxLength={10}
-                />
-              </div>
-              <Button variant="outline" className="self-end" onClick={handleCardManual}>OK</Button>
+              <Input
+                placeholder="O carné: KEY_000000"
+                value={cardManual}
+                onChange={(e) => setCardManual(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && handleCardManual()}
+                className="font-mono uppercase h-12 text-base flex-1"
+                maxLength={10}
+              />
+              <Button variant="outline" className="h-12 px-5 text-base shrink-0" onClick={handleCardManual}>
+                OK
+              </Button>
             </div>
           </div>
         )}
-      </StepCard>
+      </KioskStepToast>
 
-      {/* ── Loading ───────────────────────────────────────────── */}
       {step === "loading" && (
-        <div className="flex flex-col items-center gap-3 py-8 animate-fade-in">
-          <Loader2 className="size-8 text-violet-600 dark:text-violet-400 animate-spin" />
-          <p className="text-sm text-muted-foreground">Procesando…</p>
+        <div
+          className="rounded-2xl border border-border/80 shadow-lg px-6 py-10 flex flex-col items-center gap-4 animate-fade-in"
+          style={{ backgroundColor: getKiteToastFill("neutral") }}
+        >
+          <Loader2 className="size-12 text-primary animate-spin" />
+          <p className="text-xl font-semibold text-foreground">Procesando…</p>
         </div>
       )}
 
-      {/* ── Result ────────────────────────────────────────────── */}
-      {step === "result" && result && (
-        <ResultCard result={result} onReset={reset} />
-      )}
+      {step === "result" && result && <KioskResultToast result={result} onReset={reset} />}
 
-      {/* ── Camera modals ─────────────────────────────────────── */}
       {showToolCamera && (
-        <QRCameraModal
-          title="Escanear herramienta"
-          onScan={handleToolScanned}
-          onClose={() => setShowToolCamera(false)}
-        />
+        <QRCameraModal title="Herramienta" onScan={handleToolScanned} onClose={() => setShowToolCamera(false)} />
       )}
       {showCardCamera && (
-        <QRCameraModal
-          title="Escanear carné"
-          onScan={handleCardScanned}
-          onClose={() => setShowCardCamera(false)}
-        />
+        <QRCameraModal title="Carné" onScan={handleCardScanned} onClose={() => setShowCardCamera(false)} />
       )}
     </div>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StepCard({
+function KioskStepToast({
   stepNumber,
   title,
   icon,
   done,
   active,
   value,
-  color,
+  dimmed,
   children,
 }: {
   stepNumber: number;
@@ -326,72 +331,81 @@ function StepCard({
   done: boolean;
   active: boolean;
   value: string;
-  color: "blue" | "violet";
+  dimmed: boolean;
   children?: React.ReactNode;
 }) {
-  const colorMap = {
-    blue: {
-      border: done
-        ? "border-blue-300 dark:border-blue-500/40"
-        : active
-          ? "border-blue-400 dark:border-blue-500/35"
-          : "border-border",
-      bg: done
-        ? "bg-blue-50 dark:bg-blue-950/30"
-        : active
-          ? "bg-white dark:bg-card"
-          : "bg-muted/30",
-      num: done
-        ? "bg-blue-600 text-white dark:bg-blue-700 dark:text-blue-50"
-        : active
-          ? "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200"
-          : "bg-muted text-muted-foreground",
-      icon: "text-blue-600 dark:text-blue-300",
-    },
-    violet: {
-      border: done
-        ? "border-violet-300 dark:border-violet-500/40"
-        : active
-          ? "border-violet-400 dark:border-violet-500/35"
-          : "border-border",
-      bg: done
-        ? "bg-violet-50 dark:bg-violet-950/30"
-        : active
-          ? "bg-white dark:bg-card"
-          : "bg-muted/30",
-      num: done
-        ? "bg-violet-600 text-white dark:bg-violet-700 dark:text-violet-50"
-        : active
-          ? "bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200"
-          : "bg-muted text-muted-foreground",
-      icon: "text-violet-600 dark:text-violet-300",
-    },
-  };
-
-  const c = colorMap[color];
+  const bg = done ? getKiteToastFill("success") : getKiteToastFill("neutral");
+  const showDim = dimmed && !active && !done;
 
   return (
     <div
-      className={`rounded-xl border-2 p-4 transition-all ${c.border} ${c.bg} ${active ? "shadow-sm" : ""}`}
+      className={`rounded-2xl border shadow-lg px-5 py-5 transition-all ${
+        done
+          ? "border-emerald-300/90 dark:border-emerald-700/50"
+          : active
+            ? "border-border ring-2 ring-primary/25"
+            : "border-border/70"
+      } ${showDim ? "pointer-events-none opacity-50 bg-muted/40" : ""}`}
+      style={!showDim ? { backgroundColor: bg } : undefined}
     >
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`size-7 rounded-full flex items-center justify-center text-sm font-bold ${c.num}`}>
-          {done ? "✓" : stepNumber}
+      <div className="flex items-center gap-4">
+        <div
+          className={`size-12 shrink-0 rounded-full flex items-center justify-center text-lg font-bold ${
+            done
+              ? "bg-emerald-500! text-white"
+              : active
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {done ? <CheckCircle2 className="size-7" strokeWidth={2.5} /> : stepNumber}
         </div>
-        <div className={c.icon}>{icon}</div>
-        <span className="font-semibold text-sm">{title}</span>
-        {done && value && (
-          <span className="ml-auto font-mono text-xs text-muted-foreground truncate max-w-[120px]">
-            {value}
-          </span>
-        )}
+        <div className="min-w-0 flex-1 flex items-center gap-3">
+          <div className="text-primary shrink-0">{icon}</div>
+          <span className="text-xl font-bold text-foreground truncate">{title}</span>
+          {done && value ? (
+            <span className="ml-auto font-mono text-sm sm:text-base text-muted-foreground truncate max-w-[40%]">
+              {value}
+            </span>
+          ) : null}
+        </div>
       </div>
+      {children ? <div className="mt-5 pl-0 sm:pl-17">{children}</div> : null}
+    </div>
+  );
+}
+
+function StatusPill({
+  variant,
+  children,
+}: {
+  variant: "pass" | "pending" | "neutral";
+  children: React.ReactNode;
+}) {
+  const ring =
+    variant === "pass"
+      ? "border-emerald-300/90 dark:border-emerald-700/50"
+      : variant === "pending"
+        ? "border-amber-300/90 dark:border-amber-700/50"
+        : "border-border";
+  const fill =
+    variant === "pass"
+      ? getKiteToastFill("success")
+      : variant === "pending"
+        ? getKiteToastFill("warning")
+        : getKiteToastFill("neutral");
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 ${ring}`}
+      style={{ backgroundColor: fill }}
+    >
       {children}
     </div>
   );
 }
 
-function ResultCard({
+function KioskResultToast({
   result,
   onReset,
 }: {
@@ -406,134 +420,136 @@ function ResultCard({
     return () => window.clearInterval(timer);
   }, [result]);
 
-  const isPosive =
-    result.action === "borrowed" ||
-    result.action === "returned" ||
-    result.action === "requested";
-  const isConflict = result.action === "conflict";
-  const isBlocked = result.action === "error" && Boolean(result.block);
-  const isError = result.action === "error" && !result.block;
+  const pass = result.action === "borrowed" || result.action === "returned";
+  const pending = result.action === "requested" || result.action === "conflict";
+  const denied = result.action === "error";
+
   const conflictTitle =
     result.action === "conflict" && result.message.toLowerCase().includes("solicitud pendiente")
-      ? "Solicitud pendiente"
-      : "Herramienta en préstamo";
+      ? "Pendiente"
+      : "No disponible";
+
   const remainingLabel =
     result.action === "error" && result.block?.endsAt
       ? formatRemainingMs(new Date(result.block.endsAt).getTime() - now)
       : null;
 
+  let fillKey: "success" | "warning" | "error" = "success";
+  if (pending) fillKey = "warning";
+  if (denied) fillKey = "error";
+
+  const Icon =
+    pass ? CheckCircle2 : pending ? Clock : result.action === "error" && result.block ? Ban : XCircle;
+
+  const iconWrap = pass
+    ? "bg-emerald-500! text-white"
+    : pending
+      ? "bg-amber-400! text-amber-950 dark:bg-amber-500! dark:text-amber-950!"
+      : "bg-red-500! text-white";
+
+  const borderTone = pass
+    ? "border-emerald-400/80 dark:border-emerald-600/45"
+    : pending
+      ? "border-amber-400/80 dark:border-amber-600/45"
+      : "border-red-400/80 dark:border-red-600/45";
+
   return (
     <div
-      className={`rounded-xl border-2 p-6 animate-scale-in text-center ${
-        isPosive
-          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800/70 dark:bg-emerald-950/45"
-          : isConflict
-          ? "border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40"
-          : isBlocked
-          ? "border-purple-300 bg-purple-50 dark:border-purple-800/60 dark:bg-purple-950/40"
-          : "border-red-300 bg-red-50 dark:border-destructive/45 dark:bg-destructive/12"
-      }`}
+      className={`rounded-2xl border-2 shadow-xl px-5 py-6 sm:px-7 sm:py-8 animate-scale-in text-left ${borderTone}`}
+      style={{ backgroundColor: getKiteToastFill(fillKey) }}
     >
-      {isPosive && (
-        <CheckCircle2 className="size-12 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
-      )}
-      {isConflict && (
-        <AlertCircle className="size-12 text-amber-600 dark:text-amber-400 mx-auto mb-3" />
-      )}
-      {isBlocked && (
-        <AlertCircle className="size-12 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
-      )}
-      {isError && (
-        <XCircle className="size-12 text-red-600 dark:text-destructive mx-auto mb-3" />
-      )}
-
-      {result.action === "borrowed" && (
-        <>
-          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">
-            ¡Préstamo registrado!
-          </h2>
-          <p className="text-sm text-emerald-700 dark:text-muted-foreground mb-1">
-            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> llevó:{" "}
-            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
-          </p>
-          <p className="text-xs text-emerald-600 dark:text-muted-foreground">
-            Devuelve antes del{" "}
-            {new Date(result.expectedReturnDate).toLocaleDateString("es-MX", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            })}
-          </p>
-        </>
-      )}
-
-      {result.action === "returned" && (
-        <>
-          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">
-            ¡Devolución registrada!
-          </h2>
-          <p className="text-sm text-emerald-700 dark:text-muted-foreground">
-            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> devolvió:{" "}
-            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
-          </p>
-        </>
-      )}
-
-      {result.action === "requested" && (
-        <>
-          <h2 className="text-lg font-bold text-emerald-800 dark:text-foreground mb-1">Solicitud registrada</h2>
-          <p className="text-sm text-emerald-700 dark:text-muted-foreground mb-1">
-            <strong className="text-emerald-900 dark:text-foreground">{result.studentName}</strong> solicitó:{" "}
-            <strong className="text-emerald-900 dark:text-foreground">{result.toolName}</strong>
-          </p>
-          <p className="text-xs text-emerald-700 dark:text-muted-foreground">{result.message}</p>
-          <p className="text-xs text-emerald-700 dark:text-muted-foreground mt-1">
-            Próximamente enviaremos un correo automático cuando el encargado apruebe la solicitud.
-          </p>
-        </>
-      )}
-
-      {result.action === "conflict" && (
-        <>
-          <h2 className="text-lg font-bold text-amber-800 dark:text-foreground mb-1">{conflictTitle}</h2>
-          <p className="text-sm text-amber-700 dark:text-muted-foreground">{result.message}</p>
-          {result.borrowerName && (
-            <p className="text-xs text-amber-600 dark:text-muted-foreground mt-1">
-              Prestada a: {result.borrowerName}
-            </p>
+      <div className="flex gap-5 items-start">
+        <div
+          className={`size-16 sm:size-18 shrink-0 rounded-full flex items-center justify-center shadow-md ${iconWrap}`}
+        >
+          <Icon className="size-9 sm:size-10" strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          {result.action === "borrowed" && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">Listo · Prestado</h2>
+              <p className="text-lg sm:text-xl font-semibold text-foreground">
+                {result.studentName}
+                <span className="font-normal text-muted-foreground"> · </span>
+                {result.toolName}
+              </p>
+              <p className="text-base text-muted-foreground">
+                Vence{" "}
+                {new Date(result.expectedReturnDate).toLocaleDateString("es-MX", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                })}
+              </p>
+            </>
           )}
-        </>
-      )}
 
-      {result.action === "error" && result.block && (
-        <>
-          <h2 className="text-lg font-bold text-purple-800 dark:text-foreground mb-1">Préstamo bloqueado</h2>
-          <p className="text-sm text-purple-700 dark:text-muted-foreground mb-1">{result.block.reason}</p>
-          {result.block.isPermanent ? (
-            <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold">Bloqueo permanente</p>
-          ) : (
-            <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold">
-              Bloqueo temporal {remainingLabel ? `(${remainingLabel} restantes)` : ""}
-            </p>
+          {result.action === "returned" && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">Listo · Devuelto</h2>
+              <p className="text-lg sm:text-xl font-semibold text-foreground">
+                {result.studentName}
+                <span className="font-normal text-muted-foreground"> · </span>
+                {result.toolName}
+              </p>
+            </>
           )}
-          <p className="text-xs text-purple-700 dark:text-muted-foreground mt-2">{result.block.appealMessage}</p>
-        </>
-      )}
 
-      {result.action === "error" && !result.block && (
-        <>
-          <h2 className="text-lg font-bold text-red-800 dark:text-foreground mb-1">Error</h2>
-          <p className="text-sm text-red-700 dark:text-muted-foreground">{result.message}</p>
-        </>
-      )}
+          {result.action === "requested" && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">Pendiente</h2>
+              <p className="text-lg sm:text-xl font-semibold text-foreground">
+                {result.studentName}
+                <span className="font-normal text-muted-foreground"> · </span>
+                {result.toolName}
+              </p>
+              <p className="text-base text-muted-foreground line-clamp-2">{result.message}</p>
+            </>
+          )}
+
+          {result.action === "conflict" && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">{conflictTitle}</h2>
+              <p className="text-lg font-medium text-foreground">{result.message}</p>
+              {result.borrowerName ? (
+                <p className="text-base text-muted-foreground">Con: {result.borrowerName}</p>
+              ) : null}
+            </>
+          )}
+
+          {result.action === "error" && result.block && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">Denegado</h2>
+              <p className="text-lg font-semibold text-foreground">{result.block.reason}</p>
+              {result.block.isPermanent ? (
+                <p className="text-base font-medium text-foreground">Bloqueo permanente</p>
+              ) : (
+                <p className="text-base font-medium text-foreground">
+                  Temporal{remainingLabel ? ` · ${remainingLabel}` : ""}
+                </p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Para más información o aclaraciones, acude al encargado del laboratorio.
+              </p>
+            </>
+          )}
+
+          {result.action === "error" && !result.block && (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">No se pudo</h2>
+              <p className="text-lg font-medium text-foreground">{result.message}</p>
+            </>
+          )}
+        </div>
+      </div>
 
       <Button
         variant="outline"
-        className="mt-5 gap-2 border-border bg-background/80 dark:bg-card/80"
+        className="mt-8 w-full min-h-14 text-lg font-semibold gap-2 border-2 bg-background/90"
         onClick={onReset}
       >
-        <RotateCcw className="size-4" />
-        Nuevo préstamo / devolución
+        <RotateCcw className="size-5" />
+        Nueva operación
       </Button>
     </div>
   );
