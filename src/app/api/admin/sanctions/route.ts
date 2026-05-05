@@ -32,10 +32,6 @@ const createSchema = z
   startsAt: z.coerce.date().optional(),
   endsAt: z.coerce.date().nullable().optional(),
   isPermanent: z.boolean().optional(),
-  appealMessage: z.preprocess(
-    (v) => (v === null || v === "" ? undefined : v),
-    z.string().max(500).optional(),
-  ),
 })
   .superRefine((data, ctx) => {
     if (!data.cardKey && !data.studentId) {

@@ -6,7 +6,6 @@ export type SanctionRow = {
   sanctionType: string;
   daysOverdue: number;
   description: string | null;
-  appealMessage: string | null;
   startsAt: Date;
   endsAt: Date | null;
   isPermanent: boolean;

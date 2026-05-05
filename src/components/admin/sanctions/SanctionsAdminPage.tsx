@@ -1,23 +1,68 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { AlertTriangle, Camera } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, Camera, ChevronDown, ChevronRight, PlusCircle } from "lucide-react";
 import QRCameraModal from "@/components/kiosk/QRCameraModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isValidCardKey, normalizeCardKey } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn, isValidCardKey, normalizeCardKey } from "@/lib/utils";
+import { kiteError, kiteWarning, kitePromise } from "@/lib/kite-sileo";
 import SanctionsTable from "./components/SanctionsTable";
+import {
+  SANCTIONS_ADMIN_TABS,
+  parseSanctionsAdminTabParam,
+  type SanctionsAdminTabId,
+} from "./sanctions-admin-tabs";
 import { buildCardKey, sanitizeCardSuffix } from "./utils";
 import { SanctionRow } from "./types";
 
+function tabCount(activeLen: number, historialLen: number, tab: SanctionsAdminTabId): number {
+  switch (tab) {
+    case "activas":
+      return activeLen;
+    case "historial":
+      return historialLen;
+    default:
+      return 0;
+  }
+}
+
 export default function SanctionsAdminPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeTab = useMemo(
+    () => parseSanctionsAdminTabParam(searchParams.get("tab")),
+    [searchParams],
+  );
+
+  const setActiveTab = useCallback(
+    (next: SanctionsAdminTabId) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "activas") params.delete("tab");
+      else params.set("tab", next);
+      const q = params.toString();
+      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const [sanctions, setSanctions] = useState<SanctionRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [showCardCamera, setShowCardCamera] = useState(false);
   const [cardSuffix, setCardSuffix] = useState("");
   const [loanId, setLoanId] = useState("");
@@ -26,20 +71,19 @@ export default function SanctionsAdminPage() {
   const [daysOverdueValue, setDaysOverdueValue] = useState("0");
   const [isPermanent, setIsPermanent] = useState(true);
   const [endsAt, setEndsAt] = useState("");
-  const [appealMessage, setAppealMessage] = useState(
-    "Puedes apelar esta sancion con el equipo administrativo del laboratorio.",
-  );
 
   async function loadData() {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/admin/sanctions", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error cargando sanciones.");
       setSanctions(data as SanctionRow[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar sanciones.");
+      kiteError({
+        title: "Error al cargar sanciones",
+        description: err instanceof Error ? err.message : "No se pudieron cargar las sanciones.",
+      });
     } finally {
       setLoading(false);
     }
@@ -51,10 +95,12 @@ export default function SanctionsAdminPage() {
 
   function applyScannedCard(raw: string) {
     setShowCardCamera(false);
-    setError(null);
     const key = normalizeCardKey(raw);
     if (!isValidCardKey(key)) {
-      setError("QR invalido. Se esperaba un carne con formato KEY_000000.");
+      kiteWarning({
+        title: "QR inválido",
+        description: "Se esperaba un carné con formato KEY_000000.",
+      });
       return;
     }
     setCardSuffix(key.slice(4));
@@ -62,23 +108,21 @@ export default function SanctionsAdminPage() {
 
   async function createSanction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setMessage(null);
     try {
-      if (!cardSuffix.trim()) throw new Error("Introduce al menos un digito de carne.");
+      if (!cardSuffix.trim()) throw new Error("Introduce al menos un dígito de carné.");
       const cardKey = buildCardKey(cardSuffix);
-      if (!isValidCardKey(cardKey)) throw new Error("Carne invalido.");
+      if (!isValidCardKey(cardKey)) throw new Error("Carné inválido.");
 
       let loanIdNum: number | undefined;
       if (loanId.trim()) {
         const parsed = Number.parseInt(loanId, 10);
-        if (!Number.isFinite(parsed) || parsed < 1) throw new Error("ID de prestamo invalido.");
+        if (!Number.isFinite(parsed) || parsed < 1) throw new Error("ID de préstamo inválido.");
         loanIdNum = parsed;
       }
       const parsedDays = Number.parseInt(daysOverdueValue || "0", 10);
       const daysOverdue = Number.isFinite(parsedDays) && parsedDays >= 0 ? parsedDays : 0;
 
-      const res = await fetch("/api/admin/sanctions", {
+      const doFetch = fetch("/api/admin/sanctions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,50 +133,82 @@ export default function SanctionsAdminPage() {
           description: description || undefined,
           isPermanent,
           endsAt: isPermanent ? null : endsAt ? new Date(endsAt).toISOString() : undefined,
-          appealMessage: appealMessage.trim() || undefined,
         }),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "No se pudo crear la sanción.");
+        return data as SanctionRow;
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "No se pudo crear la sancion.");
 
-      setMessage(`Sancion creada #${(data as SanctionRow).id} (${cardKey})`);
-      await loadData();
+      await kitePromise(
+        doFetch.then(async (sanction) => { await loadData(); return sanction; }),
+        {
+          loading: { title: "Registrando sanción…", description: cardKey },
+          success: (sanction) => ({
+            title: "Sanción registrada",
+            description: `#${sanction.id} — ${cardKey}`,
+          }),
+          error: (err) => ({
+            title: "No se pudo crear la sanción",
+            description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+          }),
+        },
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear sancion.");
+      kiteError({
+        title: "Error de validación",
+        description: err instanceof Error ? err.message : "Revisa los datos del formulario.",
+      });
     }
   }
 
-  async function updateStatus(sanctionId: number, status: "resolved" | "appealed") {
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/admin/sanctions/${sanctionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+  async function resolveSanction(sanctionId: number) {
+    const doFetch = fetch(`/api/admin/sanctions/${sanctionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "resolved" }),
+    }).then(async (res) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "No se pudo actualizar.");
-      setMessage(`Sancion #${(data as SanctionRow).id} actualizada.`);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al actualizar sancion.");
-    }
+      return data as SanctionRow;
+    });
+
+    await kitePromise(
+      doFetch.then(async (sanction) => { await loadData(); return sanction; }),
+      {
+        loading: { title: "Actualizando sanción…" },
+        success: (sanction) => ({ title: "Sanción resuelta", description: `Sanción #${sanction.id} — bloqueo levantado` }),
+        error: (err) => ({
+          title: "No se pudo actualizar",
+          description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+        }),
+      },
+    );
   }
 
   async function deleteSanction(sanctionId: number) {
-    if (!window.confirm("¿Eliminar este registro de sancion?")) return;
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/admin/sanctions/${sanctionId}`, { method: "DELETE" });
+    if (!window.confirm("¿Eliminar este registro de sanción?")) return;
+
+    const doFetch = fetch(`/api/admin/sanctions/${sanctionId}`, { method: "DELETE" }).then(async (res) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "No se pudo eliminar.");
-      setMessage(`Sancion #${sanctionId} eliminada.`);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al eliminar sancion.");
-    }
+      return data;
+    });
+
+    await kitePromise(
+      doFetch.then(async (d) => { await loadData(); return d; }),
+      {
+        loading: { title: "Eliminando sanción…" },
+        success: () => ({
+          title: "Sanción eliminada",
+          description: `Registro #${sanctionId} eliminado.`,
+        }),
+        error: (err) => ({
+          title: "No se pudo eliminar",
+          description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+        }),
+      },
+    );
   }
 
   const active = sanctions.filter((sanction) => sanction.status === "active");
@@ -142,14 +218,32 @@ export default function SanctionsAdminPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Sanciones</h1>
-        <p className="text-muted-foreground text-sm">Registro por carne (KEY_######) con opcion de escaneo QR.</p>
+        <p className="text-muted-foreground text-sm">
+          Registro por carné (KEY_######) con opción de escaneo QR. Lista en pestañas: activas e historial.
+        </p>
       </div>
 
-      {message && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="py-3 text-sm text-emerald-700">{message}</CardContent></Card>}
-      {error && <Card className="border-destructive/30 bg-destructive/5"><CardContent className="py-3 text-sm text-destructive">{error}</CardContent></Card>}
-
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">Crear sancion</CardTitle></CardHeader>
+        <CardHeader>
+          <button
+            type="button"
+            onClick={() => setIsCreateFormOpen((prev) => !prev)}
+            className="flex min-h-8 w-full items-center text-left"
+            aria-expanded={isCreateFormOpen}
+            aria-label={`${isCreateFormOpen ? "Contraer" : "Expandir"} formulario de registro de sanción`}
+          >
+            <CardTitle className="flex items-center gap-2 text-base leading-none">
+              {isCreateFormOpen ? (
+                <ChevronDown className="size-4 text-purple-600 dark:text-purple-400" />
+              ) : (
+                <ChevronRight className="size-4 text-purple-600 dark:text-purple-400" />
+              )}
+              <PlusCircle className="size-4 text-purple-600 dark:text-purple-400" />
+              Registrar sanción
+            </CardTitle>
+          </button>
+        </CardHeader>
+        {isCreateFormOpen && (
         <CardContent>
           {showCardCamera && (
             <QRCameraModal title="Escanear carne del estudiante" onClose={() => setShowCardCamera(false)} onScan={applyScannedCard} />
@@ -171,9 +265,17 @@ export default function SanctionsAdminPage() {
             <div className="space-y-1"><Label htmlFor="loanId">ID de prestamo (opcional)</Label><Input id="loanId" value={loanId} onChange={(e) => setLoanId(e.target.value)} className="font-mono text-sm" /></div>
             <div className="space-y-1">
               <Label htmlFor="sanctionType">Tipo</Label>
-              <select id="sanctionType" value={sanctionType} onChange={(e) => setSanctionType(e.target.value)} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-                <option value="overdue">Atraso</option><option value="damage">Dano</option><option value="loss">Perdida</option><option value="other">Otro</option>
-              </select>
+              <Select value={sanctionType} onValueChange={setSanctionType}>
+                <SelectTrigger id="sanctionType" className="w-full bg-background text-foreground">
+                  <SelectValue placeholder="Selecciona tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="overdue">Atraso</SelectItem>
+                  <SelectItem value="damage">Daño</SelectItem>
+                  <SelectItem value="loss">Pérdida</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1"><Label htmlFor="daysOverdue">Dias de atraso</Label><Input id="daysOverdue" type="number" min={0} value={daysOverdueValue} onChange={(e) => setDaysOverdueValue(e.target.value)} /></div>
             <div className="space-y-1 md:col-span-2"><Label htmlFor="description">Descripcion</Label><textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" /></div>
@@ -184,20 +286,78 @@ export default function SanctionsAdminPage() {
               </div>
             </div>
             {!isPermanent && <div className="space-y-1 md:col-span-2"><Label htmlFor="endsAt">Termina el</Label><Input id="endsAt" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></div>}
-            <div className="space-y-1 md:col-span-2"><Label htmlFor="appealMessage">Mensaje para apelacion</Label><Input id="appealMessage" value={appealMessage} onChange={(e) => setAppealMessage(e.target.value)} /></div>
             <div className="md:col-span-2"><Button type="submit" className="w-full sm:w-auto">Registrar sancion</Button></div>
           </form>
         </CardContent>
+        )}
       </Card>
 
-      <Card className="border-purple-200">
-        <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="size-4 text-purple-600" />Sanciones activas <Badge variant="alert">{active.length}</Badge></CardTitle></CardHeader>
-        <CardContent>{loading ? <p className="text-sm text-muted-foreground py-3">Cargando...</p> : <SanctionsTable sanctions={active} onLift={(id) => void updateStatus(id, "resolved")} onModifyAppeal={(id) => void updateStatus(id, "appealed")} onDelete={(id) => void deleteSanction(id)} />}</CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base text-muted-foreground">Historial (no activas)</CardTitle></CardHeader>
-        <CardContent>{loading ? <p className="text-sm text-muted-foreground py-3">Cargando...</p> : <SanctionsTable sanctions={resolved} onLift={(id) => void updateStatus(id, "resolved")} onModifyAppeal={(id) => void updateStatus(id, "appealed")} onDelete={(id) => void deleteSanction(id)} allowLiftAppeal={false} />}</CardContent>
-      </Card>
+      {loading ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">Cargando…</CardContent>
+        </Card>
+      ) : (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SanctionsAdminTabId)} className="gap-4">
+          <TabsList aria-label="Secciones de sanciones" className="h-auto w-full flex-wrap justify-start gap-1 py-1.5">
+            {SANCTIONS_ADMIN_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const n = tabCount(active.length, resolved.length, tab.id);
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className={cn("group gap-1.5 px-2.5 py-2 sm:flex-initial", tab.triggerClass)}
+                >
+                  <Icon className="size-4 shrink-0 opacity-90" aria-hidden />
+                  <span>{tab.label}</span>
+                  <span
+                    className={cn(
+                      "inline-flex min-w-[1.35rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                      tab.countClass,
+                    )}
+                  >
+                    {n}
+                  </span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+
+          <TabsContent value="activas" className="mt-0">
+            <Card className="border-purple-200 dark:border-purple-800/45">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="size-4 text-purple-600 dark:text-purple-400" aria-hidden />
+                  Sanciones activas
+                  <Badge variant="alert">{active.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SanctionsTable
+                  sanctions={active}
+                  onResolve={(id) => void resolveSanction(id)}
+                  onDelete={(id) => void deleteSanction(id)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="historial" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base text-muted-foreground">Historial (no activas)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SanctionsTable
+                  sanctions={resolved}
+                  onDelete={(id) => void deleteSanction(id)}
+                  allowResolve={false}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

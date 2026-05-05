@@ -1,4 +1,4 @@
-import { Pencil, Trash2, UserRoundCheck } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
@@ -7,18 +7,16 @@ import { SanctionRow } from "../types";
 
 type SanctionsTableProps = {
   sanctions: SanctionRow[];
-  onLift: (id: number) => void;
-  onModifyAppeal: (id: number) => void;
+  onResolve?: (id: number) => void;
   onDelete: (id: number) => void;
-  allowLiftAppeal?: boolean;
+  allowResolve?: boolean;
 };
 
 export default function SanctionsTable({
   sanctions,
-  onLift,
-  onModifyAppeal,
+  onResolve,
   onDelete,
-  allowLiftAppeal = true,
+  allowResolve = true,
 }: SanctionsTableProps) {
   if (sanctions.length === 0) return <p className="text-sm text-muted-foreground py-3">Sin registros.</p>;
 
@@ -63,15 +61,17 @@ export default function SanctionsTable({
               </td>
               <td className="py-2.5">
                 <div className="flex items-center justify-end gap-0.5">
-                  {allowLiftAppeal && sanction.status === "active" && (
-                    <>
-                      <Button type="button" size="icon" variant="ghost" className="text-violet-700" onClick={() => onLift(sanction.id)}>
-                        <UserRoundCheck className="size-4" />
-                      </Button>
-                      <Button type="button" size="icon" variant="ghost" className="text-violet-700" onClick={() => onModifyAppeal(sanction.id)}>
-                        <Pencil className="size-4" />
-                      </Button>
-                    </>
+                  {allowResolve && onResolve && sanction.status === "active" && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400 dark:hover:text-emerald-300 dark:hover:bg-emerald-500/15"
+                      title="Quitar bloqueo (marcar resuelta)"
+                      onClick={() => onResolve(sanction.id)}
+                    >
+                      <Check className="size-4" strokeWidth={2.5} />
+                    </Button>
                   )}
                   <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => onDelete(sanction.id)}>
                     <Trash2 className="size-4" />

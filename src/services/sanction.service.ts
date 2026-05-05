@@ -6,7 +6,6 @@ export type BlockingSanction = {
   isPermanent: boolean;
   startsAt: Date;
   endsAt: Date | null;
-  appealMessage: string | null;
 };
 
 export async function getAllSanctions() {
@@ -30,7 +29,6 @@ export async function createSanction(
     startsAt?: Date;
     endsAt?: Date | null;
     isPermanent?: boolean;
-    appealMessage?: string;
   }
 ) {
   const sanction = await prisma.sanction.create({
@@ -43,9 +41,6 @@ export async function createSanction(
       startsAt: data.startsAt ?? new Date(),
       endsAt: data.isPermanent ? null : (data.endsAt ?? null),
       isPermanent: data.isPermanent ?? false,
-      appealMessage:
-        data.appealMessage ??
-        "Puedes apelar esta sanción con el equipo administrativo del laboratorio.",
       status: "active",
     },
   });
@@ -67,13 +62,12 @@ export async function updateSanction(
   sanctionId: number,
   actorId: number,
   data: {
-    status?: "active" | "resolved" | "appealed";
+    status?: "active" | "resolved";
     description?: string;
     daysOverdue?: number;
     startsAt?: Date;
     endsAt?: Date | null;
     isPermanent?: boolean;
-    appealMessage?: string;
   }
 ) {
   const updated = await prisma.sanction.update({
@@ -85,7 +79,6 @@ export async function updateSanction(
       startsAt: data.startsAt,
       endsAt: data.isPermanent ? null : data.endsAt,
       isPermanent: data.isPermanent,
-      appealMessage: data.appealMessage,
       resolvedAt: data.status === "resolved" ? new Date() : undefined,
     },
   });
@@ -137,7 +130,6 @@ export async function getBlockingSanctionForStudent(
       isPermanent: true,
       startsAt: true,
       endsAt: true,
-      appealMessage: true,
     },
     orderBy: [{ isPermanent: "desc" }, { createdAt: "desc" }],
   });

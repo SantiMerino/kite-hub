@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import QRCameraModal from "@/components/kiosk/QRCameraModal";
 import { TOOLS_ADMIN_TABS, parseToolsAdminTabParam, type ToolsAdminTabId } from "@/components/admin/tools/tools-admin-tabs";
 import { cn, extractToolIdFromText } from "@/lib/utils";
+import { kiteError, kiteSuccess, kiteWarning, kitePromise } from "@/lib/kite-sileo";
 import {
   Wrench, Trash2, Save, PlusCircle, Camera, Filter,
   ChevronRight, ChevronDown, Info, Check, X, Plus,
@@ -365,8 +366,6 @@ export default function ToolsPage() {
 
   const [tools, setTools] = useState<ToolRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState(INITIAL_FORM);
   const [suggestions, setSuggestions] = useState<PrefixSuggestion[]>([]);
@@ -393,7 +392,6 @@ export default function ToolsPage() {
   const [newLocName, setNewLocName] = useState("");
   const [newLocType, setNewLocType] = useState<"estante" | "gaveta">("estante");
   const [newLocArea, setNewLocArea] = useState("");
-  const [locCrudError, setLocCrudError] = useState<string | null>(null);
   const [locEditId, setLocEditId] = useState<number | null>(null);
   const [locEditDraft, setLocEditDraft] = useState<Partial<ToolLocation>>({});
 
@@ -402,7 +400,6 @@ export default function ToolsPage() {
   const [catEditName, setCatEditName] = useState("");
   const [catEditColorAuto, setCatEditColorAuto] = useState(true);
   const [catEditHex, setCatEditHex] = useState("#2563eb");
-  const [catCrudError, setCatCrudError] = useState<string | null>(null);
   const [newCatColorAuto, setNewCatColorAuto] = useState(true);
   const [newCatHex, setNewCatHex] = useState("#2563eb");
 
@@ -422,14 +419,16 @@ export default function ToolsPage() {
 
   async function loadTools() {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/admin/tools", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "No se pudieron cargar herramientas.");
       setTools(data as ToolRow[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando herramientas.");
+      kiteError({
+        title: "Error al cargar herramientas",
+        description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+      });
     } finally {
       setLoading(false);
     }
@@ -553,28 +552,24 @@ export default function ToolsPage() {
   async function createNewTool(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
-    setMessage(null);
 
-    try {
-      const payload = {
-        toolId: form.toolId.trim() || undefined,
-        prefixChoice: form.toolId.trim() ? undefined : prefixChoice || undefined,
-        name: form.name.trim(),
-        description: form.description.trim() || undefined,
-        category: form.category.trim(),
-        condition: form.condition,
-        location: form.location.trim(),
-        requiresApproval: form.requiresApproval,
-      };
+    const payload = {
+      toolId: form.toolId.trim() || undefined,
+      prefixChoice: form.toolId.trim() ? undefined : prefixChoice || undefined,
+      name: form.name.trim(),
+      description: form.description.trim() || undefined,
+      category: form.category.trim(),
+      condition: form.condition,
+      location: form.location.trim(),
+      requiresApproval: form.requiresApproval,
+    };
 
-      const res = await fetch("/api/admin/tools", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const doFetch = fetch("/api/admin/tools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(async (res) => {
       const data = await res.json();
-
       if (!res.ok) {
         if (res.status === 409 && Array.isArray(data.suggestions)) {
           setSuggestions(data.suggestions as PrefixSuggestion[]);
@@ -582,14 +577,26 @@ export default function ToolsPage() {
         }
         throw new Error(data.error ?? "No se pudo crear la herramienta.");
       }
+      return data as ToolRow;
+    });
 
-      setForm(INITIAL_FORM);
-      setSuggestions([]);
-      setPrefixChoice("");
-      setMessage(`Herramienta creada: ${(data as ToolRow).toolId}`);
-      await loadTools();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear herramienta.");
+    try {
+      await kitePromise(
+        doFetch.then(async (tool) => { await loadTools(); return tool; }),
+        {
+          loading: { title: "Creando herramienta…" },
+          success: (tool) => {
+            setForm(INITIAL_FORM);
+            setSuggestions([]);
+            setPrefixChoice("");
+            return { title: "Herramienta creada", description: tool.toolId };
+          },
+          error: (err) => ({
+            title: "No se pudo crear",
+            description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+          }),
+        },
+      );
     } finally {
       setSubmitting(false);
     }
@@ -617,7 +624,6 @@ export default function ToolsPage() {
 
   // ─── Category CRUD ────────────────────────────────────────────────────────
   async function handleCreateCategory(name: string, opts?: { color?: string | null }) {
-    setCatCrudError(null);
     const trimmed = name.trim();
     if (!trimmed) return;
     const payload: { name: string; color?: string | null } = { name: trimmed };
@@ -628,25 +634,28 @@ export default function ToolsPage() {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) { setCatCrudError(data.error ?? "Error al crear categoría."); return; }
+    if (!res.ok) {
+      kiteError({ title: "Error al crear categoría", description: data.error ?? "Inténtalo de nuevo." });
+      return;
+    }
+    kiteSuccess({ title: "Categoría creada", description: trimmed });
     await loadCategories();
   }
 
   async function handleDeleteCategory(id: number, name: string): Promise<boolean> {
-    setCatCrudError(null);
     const res = await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok) {
-      setCatCrudError(data.error ?? `No se pudo eliminar "${name}".`);
+      kiteError({ title: "No se pudo eliminar", description: data.error ?? `"${name}" no se pudo eliminar.` });
       return false;
     }
+    kiteWarning({ title: "Categoría eliminada", description: name });
     await loadCategories();
     return true;
   }
 
   async function saveCatEdit(id: number) {
     if (!catEditName.trim()) return;
-    setCatCrudError(null);
     const res = await fetch(`/api/admin/categories/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -656,7 +665,11 @@ export default function ToolsPage() {
       }),
     });
     const data = await res.json();
-    if (!res.ok) { setCatCrudError(data.error ?? "Error al actualizar."); return; }
+    if (!res.ok) {
+      kiteError({ title: "Error al actualizar categoría", description: data.error ?? "Inténtalo de nuevo." });
+      return;
+    }
+    kiteSuccess({ title: "Categoría actualizada", description: catEditName.trim() });
     setCatEditId(null);
     await loadCategories();
     await loadTools();
@@ -664,7 +677,6 @@ export default function ToolsPage() {
 
   // ─── Location CRUD ────────────────────────────────────────────────────────
   async function handleCreateLocation(name: string) {
-    setLocCrudError(null);
     // Guess type from name prefix
     const guessType = name.toLowerCase().startsWith("gaveta") ? "gaveta" : "estante";
     // Guess area: look for pattern like "A-1" and extract "Mueble A"
@@ -676,87 +688,115 @@ export default function ToolsPage() {
       body: JSON.stringify({ name, locationType: guessType, area: guessArea }),
     });
     const data = await res.json();
-    if (!res.ok) { setLocCrudError(data.error ?? "Error al crear ubicación."); return; }
+    if (!res.ok) {
+      kiteError({ title: "Error al crear ubicación", description: data.error ?? "Inténtalo de nuevo." });
+      return;
+    }
+    kiteSuccess({ title: "Ubicación creada", description: name });
     await loadLocations();
   }
 
   async function handleDeleteLocation(id: number, name: string): Promise<boolean> {
-    setLocCrudError(null);
     const res = await fetch(`/api/admin/locations/${id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok) {
-      setLocCrudError(data.error ?? `No se pudo eliminar "${name}".`);
+      kiteError({ title: "No se pudo eliminar", description: data.error ?? `"${name}" no se pudo eliminar.` });
       return false;
     }
+    kiteWarning({ title: "Ubicación eliminada", description: name });
     await loadLocations();
     return true;
   }
 
   async function saveLocEdit(id: number) {
-    setLocCrudError(null);
     const res = await fetch(`/api/admin/locations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(locEditDraft),
     });
     const data = await res.json();
-    if (!res.ok) { setLocCrudError(data.error ?? "Error al actualizar."); return; }
+    if (!res.ok) {
+      kiteError({ title: "Error al actualizar ubicación", description: data.error ?? "Inténtalo de nuevo." });
+      return;
+    }
+    kiteSuccess({ title: "Ubicación actualizada" });
     setLocEditId(null);
     await loadLocations();
   }
 
   async function submitNewLocation(e: FormEvent) {
     e.preventDefault();
-    setLocCrudError(null);
-    if (!newLocName.trim() || !newLocArea.trim()) { setLocCrudError("Nombre y mueble son obligatorios."); return; }
+    if (!newLocName.trim() || !newLocArea.trim()) {
+      kiteError({ title: "Datos incompletos", description: "Nombre y mueble son obligatorios." });
+      return;
+    }
     const res = await fetch("/api/admin/locations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newLocName.trim(), locationType: newLocType, area: newLocArea.trim() }),
     });
     const data = await res.json();
-    if (!res.ok) { setLocCrudError(data.error ?? "Error al crear ubicación."); return; }
+    if (!res.ok) {
+      kiteError({ title: "Error al crear ubicación", description: data.error ?? "Inténtalo de nuevo." });
+      return;
+    }
+    kiteSuccess({ title: "Ubicación creada", description: newLocName.trim() });
     setNewLocName(""); setNewLocArea("");
     await loadLocations();
   }
 
   async function saveEdit(toolId: number) {
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/admin/tools/${toolId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editDraft),
-      });
+    const doFetch = fetch(`/api/admin/tools/${toolId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editDraft),
+    }).then(async (res) => {
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "No se pudo actualizar la herramienta.");
-      }
-      setMessage(`Herramienta actualizada: ${(data as ToolRow).toolId}`);
-      setEditingId(null);
-      setEditDraft({});
-      await loadTools();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error actualizando herramienta.");
-    }
+      if (!res.ok) throw new Error(data.error ?? "No se pudo actualizar la herramienta.");
+      return data as ToolRow;
+    });
+
+    await kitePromise(
+      doFetch.then(async (tool) => { await loadTools(); return tool; }),
+      {
+        loading: { title: "Guardando cambios…" },
+        success: (tool) => {
+          setEditingId(null);
+          setEditDraft({});
+          return { title: "Herramienta actualizada", description: tool.toolId };
+        },
+        error: (err) => ({
+          title: "No se pudo actualizar",
+          description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+        }),
+      },
+    );
   }
 
   async function deleteOneTool(tool: ToolRow) {
     const confirmed = window.confirm(`¿Eliminar ${tool.toolId} (${tool.name})?`);
     if (!confirmed) return;
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/admin/tools/${tool.id}`, { method: "DELETE" });
+
+    const doFetch = fetch(`/api/admin/tools/${tool.id}`, { method: "DELETE" }).then(async (res) => {
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "No se pudo eliminar la herramienta.");
-      }
-      setMessage(`Herramienta eliminada: ${tool.toolId}`);
+      if (!res.ok) throw new Error(data.error ?? "No se pudo eliminar la herramienta.");
+      return data;
+    });
+
+    await kiteWarning({
+      title: "Eliminando herramienta…",
+      description: tool.toolId,
+    });
+
+    try {
+      await doFetch;
       await loadTools();
+      kiteSuccess({ title: "Herramienta eliminada", description: tool.toolId });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error eliminando herramienta.");
+      kiteError({
+        title: "No se pudo eliminar",
+        description: err instanceof Error ? err.message : "Inténtalo de nuevo.",
+      });
     }
   }
 
@@ -786,17 +826,6 @@ export default function ToolsPage() {
         </TabsList>
 
         <TabsContent value="herramientas" className="mt-0 space-y-6">
-      {message && (
-        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-          <CardContent className="py-3 text-sm text-emerald-700 dark:text-emerald-200">{message}</CardContent>
-        </Card>
-      )}
-      {error && (
-        <Card className="border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30">
-          <CardContent className="py-3 text-sm text-red-700 dark:text-red-200">{error}</CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <button
@@ -1348,9 +1377,6 @@ export default function ToolsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {locCrudError && (
-            <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{locCrudError}</p>
-          )}
           <div className="overflow-x-auto overflow-y-clip">
             <table className="w-full text-sm">
               <thead>
@@ -1453,9 +1479,6 @@ export default function ToolsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {catCrudError && (
-            <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{catCrudError}</p>
-          )}
           <div className="overflow-x-auto overflow-y-clip">
             <table className="w-full text-sm">
               <thead>

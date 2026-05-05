@@ -8,5 +8,4 @@ export const SANCTION_TYPE_LABEL: Record<string, string> = {
 export const SANCTION_STATUS_LABEL: Record<string, string> = {
   active: "Activa",
   resolved: "Resuelta",
-  appealed: "Apelada",
 };

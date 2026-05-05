@@ -4,13 +4,12 @@ import { requireRole } from "@/lib/auth";
 import { deleteSanction, updateSanction } from "@/services/sanction.service";
 
 const updateSchema = z.object({
-  status: z.enum(["active", "resolved", "appealed"]).optional(),
+  status: z.enum(["active", "resolved"]).optional(),
   description: z.string().optional(),
   daysOverdue: z.number().int().min(0).optional(),
   startsAt: z.coerce.date().optional(),
   endsAt: z.coerce.date().nullable().optional(),
   isPermanent: z.boolean().optional(),
-  appealMessage: z.string().max(500).optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

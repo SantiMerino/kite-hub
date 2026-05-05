@@ -8,11 +8,11 @@ import StudentsFilters from "./components/StudentsFilters";
 import StudentsTable from "./components/StudentsTable";
 import { StatusFilter, StudentRow } from "./types";
 import { filterStudents } from "./utils";
+import { kiteError } from "@/lib/kite-sileo";
 
 export default function StudentsAdminPage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
@@ -20,7 +20,6 @@ export default function StudentsAdminPage() {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      setError(null);
       try {
         const res = await fetch("/api/admin/students", { cache: "no-store" });
         const data = await res.json();
@@ -31,7 +30,12 @@ export default function StudentsAdminPage() {
           createdAt: typeof student.createdAt === "string" ? student.createdAt : String(student.createdAt),
         })));
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "No se pudieron cargar los estudiantes.");
+        if (!cancelled) {
+          kiteError({
+            title: "Error al cargar estudiantes",
+            description: err instanceof Error ? err.message : "No se pudieron cargar los estudiantes.",
+          });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -73,7 +77,6 @@ export default function StudentsAdminPage() {
           />
         </CardHeader>
         <CardContent>
-          {error && <p className="text-sm text-destructive mb-4" role="alert">{error}</p>}
           <StudentsTable loading={loading} students={filteredStudents} />
           {!loading && filteredStudents.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
