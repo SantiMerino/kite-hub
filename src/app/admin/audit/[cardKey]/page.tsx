@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
+import AuditActionBadge from "@/components/admin/audit/components/AuditActionBadge";
 
 type AuditByCardKeyPageProps = {
   params: Promise<{ cardKey: string }>;
@@ -140,7 +141,7 @@ export default async function AuditByCardKeyPage({ params }: AuditByCardKeyPageP
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="text-left py-2 pr-4 font-medium">Fecha</th>
-                  <th className="text-left py-2 pr-4 font-medium">Accion</th>
+                  <th className="text-left py-2 pr-4 font-medium">Acción</th>
                   <th className="text-left py-2 pr-4 font-medium">Herramienta</th>
                   <th className="text-left py-2 font-medium">Detalle</th>
                 </tr>
@@ -151,8 +152,8 @@ export default async function AuditByCardKeyPage({ params }: AuditByCardKeyPageP
                   return (
                     <tr key={log.id} className="border-b last:border-0 hover:bg-muted/40">
                       <td className="py-2.5 pr-4 text-muted-foreground">{formatDateTime(log.timestamp)}</td>
-                      <td className="py-2.5 pr-4">
-                        <Badge variant="outline">{log.action}</Badge>
+                      <td className="py-2.5 pr-4 align-top">
+                        <AuditActionBadge action={log.action} />
                       </td>
                       <td className="py-2.5 pr-4 text-muted-foreground">
                         {log.tool ? `${log.tool.name} (${log.tool.toolId})` : "—"}

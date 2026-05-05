@@ -1,6 +1,12 @@
 export type AuditPageParams = {
   page?: string;
   cardKey?: string;
+  /** Filtro por categoría de acción (`action-groups`). */
+  group?: string;
+  /** Fecha inicio (YYYY-MM-DD). */
+  from?: string;
+  /** Fecha fin (YYYY-MM-DD). */
+  to?: string;
 };
 
 export type AuditLogRow = {
