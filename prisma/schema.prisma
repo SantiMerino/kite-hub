@@ -127,7 +127,7 @@ model Loan {
 
 // ─── Sanctions ────────────────────────────────────────────────────────────────
 // sanctionType: "overdue" | "damage" | "loss" | "other"
-// status: "active" | "resolved" | "appealed"
+// status: "active" | "resolved"
 
 model Sanction {
   id           Int      @id @default(autoincrement())
@@ -142,8 +142,7 @@ model Sanction {
   startsAt     DateTime @default(now())
   endsAt       DateTime?
   isPermanent  Boolean  @default(false)
-  appealMessage String? @db.NVarChar(500)
-  /// "active" | "resolved" | "appealed"
+  /// "active" | "resolved"
   status       String   @default("active") @db.NVarChar(20)
   createdAt    DateTime @default(now())
   resolvedAt   DateTime?
@@ -232,9 +231,12 @@ model EmailOutbox {
   lastError   String?  @db.NVarChar(Max)
   scheduledAt DateTime @default(now())
   sentAt      DateTime?
+  /// When the recipient (userId) opened this sent message in the in-app notification center.
+  recipientReadAt DateTime?
   createdAt   DateTime @default(now())
 
   @@index([status, scheduledAt])
+  @@index([userId, status])
   @@map("email_outbox")
 }
 

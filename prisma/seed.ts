@@ -469,8 +469,6 @@ async function main() {
         isPermanent: false,
         startsAt: subDays(now, 2),
         endsAt: addDays(now, 5),
-        appealMessage:
-          "Si necesitas esta herramienta para práctica, solicita apelación en administración.",
       },
     });
   }
@@ -490,8 +488,6 @@ async function main() {
         isPermanent: true,
         startsAt: subDays(now, 10),
         endsAt: null,
-        appealMessage:
-          "Debes conversar con administración para apelar este bloqueo.",
       },
     });
   }
