@@ -17,7 +17,7 @@ type LoanDeniedNotificationPayload = {
 };
 
 export async function notifyLoanDeniedByEmail(
-  payload: LoanDeniedNotificationPayload
+  payload: LoanDeniedNotificationPayload,
 ): Promise<{ queued: false; reason: string; payload: LoanDeniedNotificationPayload }> {
   return {
     queued: false,
@@ -28,6 +28,7 @@ export async function notifyLoanDeniedByEmail(
 
 type LoanApprovalNotificationPayload = {
   loanId: number;
+  studentId: number;
   studentName: string;
   studentCardKey: string;
   studentEmail: string | null;
@@ -43,14 +44,31 @@ function getAuditUrlByCardKey(cardKey: string) {
   return `${baseUrl}/admin/audit/${encodeURIComponent(cardKey)}`;
 }
 
+async function recordSentEmail(args: {
+  userId: number | null;
+  toEmail: string;
+  subject: string;
+  htmlBody: string;
+}) {
+  await prisma.emailOutbox.create({
+    data: {
+      userId: args.userId,
+      toEmail: args.toEmail,
+      subject: args.subject,
+      htmlBody: args.htmlBody,
+      status: "sent",
+      sentAt: new Date(),
+    },
+  });
+}
+
 export async function notifyLoanRequestedByEmail(payload: LoanApprovalNotificationPayload) {
   const adminUsers = await prisma.user.findMany({
     where: { role: { in: ["staff", "admin"] }, email: { not: null } },
-    select: { email: true },
+    select: { id: true, email: true },
   });
 
-  const uniqueEmails = Array.from(new Set(adminUsers.map((u) => u.email).filter(Boolean))) as string[];
-  if (uniqueEmails.length === 0) return { notified: 0 };
+  if (adminUsers.length === 0) return { notified: 0 };
 
   const html = buildLoanRequestedEmailHtml({
     studentName: payload.studentName,
@@ -63,20 +81,31 @@ export async function notifyLoanRequestedByEmail(payload: LoanApprovalNotificati
     auditUrl: getAuditUrlByCardKey(payload.studentCardKey),
   });
 
-  for (const email of uniqueEmails) {
+  const subject = `Solicitud pendiente: ${payload.studentCardKey} / ${payload.toolName}`;
+  let notified = 0;
+
+  for (const u of adminUsers) {
+    if (!u.email) continue;
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
-        to: email,
-        subject: `Solicitud pendiente: ${payload.studentCardKey} / ${payload.toolName}`,
+        to: u.email,
+        subject,
         html,
       });
+      await recordSentEmail({
+        userId: u.id,
+        toEmail: u.email,
+        subject,
+        htmlBody: html,
+      });
+      notified++;
     } catch (error) {
       console.error("No se pudo enviar correo de solicitud pendiente", error);
     }
   }
 
-  return { notified: uniqueEmails.length };
+  return { notified };
 }
 
 export async function notifyLoanApprovedByEmail(payload: LoanApprovalNotificationPayload) {
@@ -92,32 +121,41 @@ export async function notifyLoanApprovedByEmail(payload: LoanApprovalNotificatio
     auditUrl,
   });
 
-  const targets = new Set<string>();
-  if (payload.studentEmail) targets.add(payload.studentEmail);
-
   const adminUsers = await prisma.user.findMany({
     where: { role: { in: ["staff", "admin"] }, email: { not: null } },
-    select: { email: true },
+    select: { id: true, email: true },
   });
-  for (const user of adminUsers) {
-    if (user.email) targets.add(user.email);
+
+  const targets = new Map<string, number | null>();
+  if (payload.studentEmail) {
+    targets.set(payload.studentEmail, payload.studentId);
+  }
+  for (const u of adminUsers) {
+    if (u.email) targets.set(u.email, u.id);
   }
 
-  const uniqueEmails = Array.from(targets);
-  if (uniqueEmails.length === 0) return { notified: 0, auditUrl };
+  const subject = `Préstamo aprobado: ${payload.studentCardKey} / ${payload.toolName}`;
+  let notified = 0;
 
-  for (const email of uniqueEmails) {
+  for (const [email, userId] of targets) {
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
         to: email,
-        subject: `Prestamo aprobado: ${payload.studentCardKey} / ${payload.toolName}`,
+        subject,
         html,
       });
+      await recordSentEmail({
+        userId,
+        toEmail: email,
+        subject,
+        htmlBody: html,
+      });
+      notified++;
     } catch (error) {
-      console.error("No se pudo enviar correo de aprobacion", error);
+      console.error("No se pudo enviar correo de aprobación", error);
     }
   }
 
-  return { notified: uniqueEmails.length, auditUrl };
+  return { notified, auditUrl };
 }

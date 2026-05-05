@@ -34,7 +34,6 @@ export class LoanBlockedError extends Error {
     isPermanent: boolean;
     endsAt: Date | null;
     startsAt: Date | null;
-    appealMessage: string;
   };
 
   constructor(details: LoanBlockedError["details"]) {
@@ -165,7 +164,6 @@ export async function loanOrReturn(
       isPermanent: true,
       endsAt: null,
       startsAt: null,
-      appealMessage: "Puedes apelar este bloqueo con administración.",
     });
   }
 
@@ -177,9 +175,6 @@ export async function loanOrReturn(
       isPermanent: blockingSanction.isPermanent,
       startsAt: blockingSanction.startsAt,
       endsAt: blockingSanction.endsAt,
-      appealMessage:
-        blockingSanction.appealMessage ??
-        "Puedes apelar esta sanción con el equipo administrativo del laboratorio.",
     });
   }
 
@@ -329,6 +324,7 @@ export async function loanOrReturn(
   if (tool.requiresApproval) {
     await notifyLoanRequestedByEmail({
       loanId: result.id,
+      studentId: student.id,
       studentName: student.name ?? cardKey,
       studentCardKey: cardKey,
       studentEmail: student.email,
@@ -498,6 +494,7 @@ export async function approveLoan(loanId: number, actorId: number) {
 
   await notifyLoanApprovedByEmail({
     loanId,
+    studentId: loan.studentId,
     studentName: loan.student.name ?? loan.student.cardKey ?? `student-${loan.studentId}`,
     studentCardKey: loan.student.cardKey ?? `student-${loan.studentId}`,
     studentEmail: loan.student.email,

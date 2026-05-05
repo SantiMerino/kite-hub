@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { auth0 } from "@/lib/auth0";
 import { getAuthUser } from "@/lib/auth";
-import { Bell, LogOut, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
 import ThemeToggle from "@/components/theme/theme-toggle";
+import NotificationBell from "@/components/layout/NotificationBell";
 import {
   isDevAuthBypassEnabled,
   withDevDatabaseFallback,
 } from "@/lib/dev-bypass";
+import { countUnreadNotifications } from "@/services/notification.service";
 
 const HAS_DATABASE_URL = Boolean(process.env.DATABASE_URL);
 
@@ -20,16 +21,11 @@ export default async function TopBar({ title }: { title?: string }) {
   const unreadCount = user
     ? isDevAuthBypassEnabled()
       ? await withDevDatabaseFallback(
-          () =>
-            prisma.staffNotification.count({
-              where: { userId: user.id, status: "unread" },
-            }),
+          () => countUnreadNotifications(user.id),
           0,
         )
       : HAS_DATABASE_URL
-        ? await prisma.staffNotification.count({
-            where: { userId: user.id, status: "unread" },
-          })
+        ? await countUnreadNotifications(user.id)
         : 0
     : 0;
 
@@ -50,17 +46,7 @@ export default async function TopBar({ title }: { title?: string }) {
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         <ThemeToggle />
 
-        {/* Notifications bell */}
-        <Link href="/admin/audit" className="relative">
-          <Button variant="ghost" size="icon">
-            <Bell className="size-4" />
-          </Button>
-          {unreadCount > 0 && (
-            <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 min-w-4 flex items-center justify-center rounded-full text-[10px] p-0 px-1">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
-          )}
-        </Link>
+        {user && <NotificationBell initialUnreadCount={unreadCount} />}
 
         {user && (
           <div className="flex items-center gap-2">

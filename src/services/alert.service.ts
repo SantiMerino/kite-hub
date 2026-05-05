@@ -143,18 +143,3 @@ export async function drainEmailOutbox(limit = 50): Promise<{ sent: number; fail
 
   return { sent, failed };
 }
-
-export async function getStaffNotifications(userId: number) {
-  return prisma.staffNotification.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
-}
-
-export async function markNotificationRead(id: number, userId: number) {
-  return prisma.staffNotification.updateMany({
-    where: { id, userId },
-    data: { status: "read", readAt: new Date() },
-  });
-}
