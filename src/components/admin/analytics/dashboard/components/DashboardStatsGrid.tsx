@@ -7,17 +7,17 @@ type DashboardStatsGridProps = {
 
 export default function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
           <Card key={stat.label}>
-            <CardContent className="pt-5 pb-4">
-              <div className={`inline-flex items-center justify-center rounded-lg p-2 ${stat.bg} mb-3`}>
-                <Icon className={`size-5 ${stat.color}`} />
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className={`inline-flex items-center justify-center rounded-md p-2 ${stat.bg} mb-2.5`}>
+                <Icon className={`size-4 ${stat.color}`} />
               </div>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+              <div className="text-xl font-bold leading-none">{stat.value}</div>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-tight">{stat.label}</p>
             </CardContent>
           </Card>
         );

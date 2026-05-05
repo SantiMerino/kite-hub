@@ -6,7 +6,6 @@ import {
   Users,
   AlertTriangle,
   ScrollText,
-  BarChart3,
   UserCircle2,
 } from "lucide-react";
 
@@ -14,74 +13,21 @@ export type AdminNavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Inactive row: icon tint (avoid blue text on dark for contrast). */
-  color: string;
-  activeColor: string;
 };
 
+/** Shared active / inactive styles: sidebar and mobile dock stay visually aligned. */
+export const NAV_LINK_ACTIVE =
+  "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm ring-1 ring-sidebar-border";
+export const NAV_LINK_INACTIVE =
+  "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground";
+export const NAV_ICON_INACTIVE = "text-muted-foreground";
+
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  {
-    label: "Panel",
-    href: "/admin/dashboard",
-    icon: LayoutDashboard,
-    color: "text-violet-600 dark:text-violet-400",
-    activeColor:
-      "bg-violet-50 text-violet-800 dark:bg-violet-500/20 dark:text-foreground",
-  },
-  {
-    label: "Préstamos",
-    href: "/admin/loans",
-    icon: PackageOpen,
-    color: "text-blue-600 dark:text-muted-foreground",
-    activeColor:
-      "bg-blue-50 text-blue-800 dark:bg-muted dark:text-foreground",
-  },
-  {
-    label: "Herramientas",
-    href: "/admin/tools",
-    icon: Wrench,
-    color: "text-emerald-600 dark:text-emerald-400",
-    activeColor:
-      "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/20 dark:text-foreground",
-  },
-  {
-    label: "Estudiantes",
-    href: "/admin/students",
-    icon: Users,
-    color: "text-blue-600 dark:text-muted-foreground",
-    activeColor:
-      "bg-blue-50 text-blue-800 dark:bg-muted dark:text-foreground",
-  },
-  {
-    label: "Sanciones",
-    href: "/admin/sanctions",
-    icon: AlertTriangle,
-    color: "text-purple-600 dark:text-purple-400",
-    activeColor:
-      "bg-purple-50 text-purple-800 dark:bg-purple-500/20 dark:text-foreground",
-  },
-  {
-    label: "Bitácora",
-    href: "/admin/audit",
-    icon: ScrollText,
-    color: "text-violet-600 dark:text-violet-400",
-    activeColor:
-      "bg-violet-50 text-violet-800 dark:bg-violet-500/20 dark:text-foreground",
-  },
-  {
-    label: "Perfil",
-    href: "/admin/profile",
-    icon: UserCircle2,
-    color: "text-violet-600 dark:text-violet-400",
-    activeColor:
-      "bg-violet-50 text-violet-800 dark:bg-violet-500/20 dark:text-foreground",
-  },
-  {
-    label: "Métricas",
-    href: "/admin/metrics",
-    icon: BarChart3,
-    color: "text-emerald-600 dark:text-emerald-400",
-    activeColor:
-      "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/20 dark:text-foreground",
-  },
+  { label: "Panel", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Préstamos", href: "/admin/loans", icon: PackageOpen },
+  { label: "Herramientas", href: "/admin/tools", icon: Wrench },
+  { label: "Estudiantes", href: "/admin/students", icon: Users },
+  { label: "Sanciones", href: "/admin/sanctions", icon: AlertTriangle },
+  { label: "Bitácora", href: "/admin/audit", icon: ScrollText },
+  { label: "Perfil", href: "/admin/profile", icon: UserCircle2 },
 ];

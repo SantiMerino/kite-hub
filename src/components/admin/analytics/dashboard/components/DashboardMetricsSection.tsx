@@ -1,20 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricsChart } from "@/components/charts/MetricsChart";
-import MetricsKpiGrid from "./components/MetricsKpiGrid";
-import MetricsSummaryTable from "./components/MetricsSummaryTable";
-import { loadAdminMetrics } from "./load-admin-metrics";
+import MetricsSummaryTable from "@/components/admin/analytics/metrics/components/MetricsSummaryTable";
+import type { AdminMetricsBundle } from "@/components/admin/analytics/metrics/load-admin-metrics";
 
-export default async function MetricsAdminPage() {
-  const { kpis, topTools, summary } = await loadAdminMetrics();
+type DashboardMetricsSectionProps = {
+  metrics: AdminMetricsBundle;
+};
+
+export default function DashboardMetricsSection({ metrics }: DashboardMetricsSectionProps) {
+  const { topTools, summary } = metrics;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <section id="metricas" className="scroll-mt-6 space-y-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Métricas</h1>
-        <p className="text-muted-foreground text-sm">Estadísticas de uso del laboratorio.</p>
+        <h2 className="text-lg font-semibold tracking-tight">Tendencias (30 días)</h2>
+        <p className="text-sm text-muted-foreground">
+          Herramientas más solicitadas y resumen del período.
+        </p>
       </div>
-
-      <MetricsKpiGrid kpis={kpis} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -41,6 +44,6 @@ export default async function MetricsAdminPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </section>
   );
 }
