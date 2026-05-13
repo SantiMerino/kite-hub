@@ -1,186 +1,116 @@
-# KITE Lab System — Sistema de gestión de préstamos de herramientas
+# KITE Lab System — Kite Hub
 
-Este repositorio (**Kite Hub**) es la aplicación del laboratorio KITE: préstamos de herramientas con QR, roles, sanciones, alertas y auditoría. Comparte **stack, sistema de diseño e identidad visual** con la plantilla **Grow Hub** (Next.js 15, Supabase, shadcn, tokens OKLCH, misma tipografía y patrones de layout). La convención de UI está en `.cursor/rules/design-system.mdc` (y `design-system.mdc` en la raíz).
+**Kite Hub** es la aplicación web del laboratorio **KITE** para gestionar préstamos y devoluciones de herramientas con **código QR / carné**, inventario, **roles** (estudiante / encargado / admin), **sanciones**, **alertas**, **notificaciones** (en app y correo) y **auditoría**. La interfaz sigue la misma línea que la plantilla **Grow Hub**: Next.js App Router, shadcn/ui (variante **new-york**, tokens OKLCH), **Geist** y patrones de layout; la convención de diseño está en `.cursor/rules/design-system.mdc`.
 
 ## Descripción general
 
-El **KITE Lab System** es una aplicación web para la gestión eficiente de préstamos de herramientas en laboratorios académicos. Permite registrar, controlar y auditar préstamos mediante escaneo QR, con autenticación por roles, alertas de atrasos y sanciones configurables.
+Aplicación full-stack pensada para el **mostrador o estante**: un flujo **kiosk** (`/kiosk`) para préstamo y devolución en dos pasos (herramienta → carné), y un **panel staff/admin** (`/admin/*`) para operación diaria, catálogo, estudiantes, sanciones y bitácora. Los datos persisten en **Microsoft SQL Server** mediante **Prisma**; la autenticación del personal usa **Auth0** (`@auth0/nextjs-auth0`).
 
-## Diseño e interfaz (obligatorio)
-
-- **Misma base que Grow Hub:** App Router, `AppShell`, sidebar/topbar, animaciones (`animate-slide-up`, etc.), toasts **Sileo** en `layout.tsx`, exportación PNG/PDF si aplica a reportes del lab.
-- **Stack UI:** shadcn/ui **new-york**, `baseColor: neutral`, **Tailwind CSS v4** (`globals.css`, `@theme inline`), **Geist** + **lucide-react**, **CVA** + **`cn()`**.
-- **Tokens:** paleta semántica única (`background`, `foreground`, `card`, `primary`, `muted`, `destructive`, `border`, `sidebar-*`, …); gráficos con `chart-1` … `chart-5` y Recharts.
-- **Dominio Kite Hub:** préstamos / flujo estudiante `blue`, inventario / herramientas `emerald`, alertas / sanciones `purple`, encargado / administración `violet` — una familia por dominio, sin mezclar.
-- **Modo oscuro:** clase `.dark` y variables del tema en todas las vistas.
-- **Detalle:** `.cursor/rules/design-system.mdc`.
-
-## Características principales
-
-### 1. Autenticación y control de acceso
-
-- **Roles diferenciados:** estudiante y encargado/administrador
-- **Autenticación:** Supabase Auth (sesión en servidor/cliente con `@supabase/ssr`)
-- **Rutas protegidas:** middleware o guards de layout según rol
-- **Permisos:** RLS en Supabase + reglas de UI (sidebar/topbar filtrado por rol, mismo patrón visual que Grow Hub)
-
-### 2. Gestión de herramientas
-
-- **CRUD completo:** crear, leer, actualizar y eliminar herramientas
-- **Identificadores únicos:** formato estándar (ej. MAR_001, DES_002)
-- **Categorización:** herramientas manuales, equipos electrónicos, medición, seguridad
-- **Estados de condición:** excelente, buena, regular, mala
-- **Ubicación en estantes:** registro de localización física
-
-### 3. Control de inventario
-
-- **Disponibilidad en tiempo real:** cantidad disponible, prestada, en mantenimiento, extraviada
-- **Estados de inventario:** disponible, prestado, mantenimiento, extraviado
-- **Gestión de cantidades:** varias unidades por herramienta
-- **Actualizaciones automáticas:** al prestar o devolver
-
-### 4. Sistema de préstamos
-
-- **Escaneo QR:** registro rápido con QR de herramienta y carné
-- **Entrada manual:** alternativa al escaneo
-- **Registro automático:** fecha, hora, responsable y condición
-- **Detección inteligente:** escaneo repetido → devolución automática
-- **Interfaz optimizada:** uso en estantes (touch, feedback claro con tokens del diseño)
-
-### 5. Sistema de devoluciones
-
-- **Detección automática:** si la herramienta está prestada → devolución
-- **Registro de condición:** estado al devolver
-- **Actualización de estado:** vuelve a disponible
-- **Auditoría:** quién devuelve y cuándo
-
-### 6. Alertas y sanciones
-
-- **Cálculo automático:** días de atraso en tiempo real
-- **Alertas por atraso:** cuando vence la devolución
-- **Alertas de proximidad:** aviso 1 día antes del vencimiento
-- **Sanciones configurables:** reglas por días de atraso
-- **Restricción de préstamos:** usuarios con atrasos severos no pueden prestar
-
-### 7. Reportes y auditoría
-
-- **Bitácora completa:** operaciones (BORROW, RETURN, CREATE, UPDATE, DELETE)
-- **Filtros avanzados:** usuario, herramienta, fechas, tipo de acción
-- **Reportes estadísticos:** herramientas más solicitadas, usuarios más activos
-- **Historial:** trazabilidad para cumplimiento
-
-### 8. Dashboard administrativo
-
-- **Estadísticas en tiempo real:** préstamos activos, atrasos, usuarios
-- **Gráficos de tendencias:** herramientas más solicitadas (series con `chart-*` del diseño)
-- **Alertas prioritarias:** atrasos y eventos críticos
-- **Gestión centralizada:** control del laboratorio
-
-## Arquitectura técnica
-
-### Stack tecnológico (misma base que Grow Hub / README Marketing Hub)
+## Stack tecnológico
 
 | Capa | Tecnología |
 |------|------------|
-| Framework | [Next.js 15](https://nextjs.org) (App Router), `next dev --turbopack` |
+| Framework | [Next.js 16](https://nextjs.org) (App Router), `next dev` con host `0.0.0.0` |
 | UI | [React 19](https://react.dev), TypeScript 5 |
 | Estilos | [Tailwind CSS 4](https://tailwindcss.com), `@tailwindcss/postcss`, `tw-animate-css` |
-| Componentes | [shadcn/ui](https://ui.shadcn.com) (estilo **new-york**, base **neutral**), [Radix UI](https://www.radix-ui.com) |
+| Componentes | [shadcn/ui](https://ui.shadcn.com) (new-york, neutral), [Radix UI](https://www.radix-ui.com) |
 | Iconos | [lucide-react](https://lucide.dev) |
-| Formularios | [react-hook-form](https://react-hook-form.com), [Zod](https://zod.dev), `@hookform/resolvers` |
-| Auth y datos | [Supabase](https://supabase.com) (`@supabase/supabase-js`, `@supabase/ssr`) — tablas y RLS para usuarios, herramientas, préstamos, sanciones, alertas y auditoría |
-| Gráficos | [Recharts](https://recharts.org) + componente `Chart` tipo shadcn |
-| Animación | [Framer Motion](https://www.framer.com/motion/) |
-| Fechas | [date-fns](https://date-fns.org), [react-day-picker](https://react-day-picker.js.org) |
-| Exportación | [html-to-image](https://github.com/bubkoo/html-to-image) (PNG), [@react-pdf/renderer](https://react-pdf.org) (PDF) — reportes / listados del laboratorio |
-| Notificaciones | [Sileo](https://www.npmjs.com/package/sileo) (toasts en `layout.tsx`) |
+| Formularios / validación | [react-hook-form](https://react-hook-form.com), [Zod](https://zod.dev), `@hookform/resolvers` |
+| Datos | [Prisma 6](https://www.prisma.io) + **SQL Server 2022** (`DATABASE_URL`) |
+| Auth | [Auth0 Next.js SDK](https://github.com/auth0/nextjs-auth0) v4; bypass opcional solo en desarrollo |
+| QR (kiosk) | `html5-qrcode`, `jsqr` |
+| Gráficos | [Recharts](https://recharts.org) |
+| Tema | [next-themes](https://github.com/pacocoursey/next-themes) |
+| Correo | [Resend](https://resend.com) |
+| Toasts | [Sileo](https://www.npmjs.com/package/sileo) (`KiteToaster` en `layout.tsx`) |
 | Calidad | ESLint 9 + `eslint-config-next` |
 
-**Tipografía:** [Geist](https://vercel.com/font) (`next/font`).
+**Tipografía:** [Geist](https://vercel.com/font) y Geist Mono (`next/font/google`).
 
-Los datos del producto viven en **Supabase (Postgres)**; no se usa el stack Express + tRPC + MySQL de la idea original. Las **funcionalidades** (préstamos, QR, sanciones, inventario, auditoría) se implementan con este stack.
+**Red frontera (auth):** `src/proxy.ts` (convención Next.js 16) — matcher para `/api/auth/*` y `/admin/*` con el cliente Auth0.
 
-### Estructura de base de datos (modelo lógico en Supabase/Postgres)
+## Funcionalidades del producto
 
-#### Tablas principales
+### Kiosk — préstamo y devolución (`/kiosk`)
 
-1. **users** — usuarios (estudiantes y administradores)
-2. **tools** — catálogo de herramientas
-3. **inventory** — disponibilidad y cantidades
-4. **loans** — préstamos
-5. **sanctions** — sanciones activas por usuario
-6. **alerts** — alertas (atrasos, proximidad)
-7. **auditLog** — bitácora de operaciones
-8. **loanRules** — reglas de sanciones
+- Flujo guiado **1 · Herramienta → 2 · Carné** (`KEY_XXXXXX`).
+- **Escaneo por cámara** (modal) o **entrada manual**; compatible con **lector tipo cuña USB** (línea saneada de CR/LF/BOM).
+- Resolución de herramienta por **`toolId`** (p. ej. `MAR_001`), por **`qrCode`** almacenado, o **código embebido** en texto/URL del QR.
+- **Vista previa** de la herramienta tras el primer escaneo (`/api/kiosk/tool-preview`).
+- **Préstamo inmediato** o **solicitud** si la herramienta tiene `requiresApproval`; respuestas tipadas (`borrowed`, `requested`, `returned`, `conflict`).
+- **Devolución** al escanear de nuevo una herramienta con préstamo abierto del mismo estudiante (misma sesión de flujo).
+- **Idempotencia** opcional vía cabecera `idempotency-key` (evita dobles altas ante reintentos).
+- Seguridad: cabecera **`x-kiosk-key`** (secreto servidor `KIOSK_SECRET` / clave pública `NEXT_PUBLIC_KIOSK_KEY`), **rate limit** por IP en `loan-or-return`.
+- **Bloqueo de préstamo** por estudiante **sancionado** (ventana activa / permanente) o **vetado** (`isBanned`), con mensaje claro en UI.
 
-### Capa de aplicación (patrón alineado a Grow Hub)
+### Panel administrativo (`/admin/*`)
 
-- **Servicios** (`src/lib/services/*`) — reglas de préstamo, devolución, sanciones, alertas.
-- **Repositorios** (`src/lib/repositories/*`) — consultas y mutaciones Supabase (con RLS según rol estudiante / encargado).
-- **Rutas** — App Router, **Route Handlers** y/o **Server Actions** donde haga falta (escaneo QR, registro de préstamo, etc.).
+Acceso solo para roles **`staff`** y **`admin`** (redirección a `/kiosk` para otros). Navegación principal:
 
-Operaciones de dominio equivalentes a la idea original (expresadas como capacidades, no como tRPC):
+| Ruta | Contenido |
+|------|-----------|
+| `/admin/dashboard` | Panel: KPIs (activos, vencidos, alertas pendientes, herramientas, estudiantes, tasa de devolución 30d, sanciones), préstamos recientes, sección de métricas (incl. herramientas más prestadas). |
+| `/admin/loans` | Préstamos en pestañas: **pendientes de aprobación**, **vencidos**, **activos**, **denegados/cancelados**, **devoluciones recientes**; acciones staff según API (aprobar, denegar, cancelar, registrar devolución). |
+| `/admin/tools` | **Herramientas:** CRUD, filtros, inventario (cantidades disponible/total), condición, ubicación, flag **requiere aprobación**, asignación de **QR**. Pestañas **Espacios** (ubicaciones tipo estante/gaveta/mueble) y **Categorías** (catálogo con color opcional). |
+| `/admin/students` | Listado de estudiantes; **alta** (admin) con nombre, email opcional y carné `KEY_XXXXXX`; indicadores de préstamos activos y sanciones; **bloqueo / desbloqueo** (admin) con motivo y auditoría. |
+| `/admin/sanctions` | Gestión de sanciones (altas, edición, resolución, tipos `overdue` \| `damage` \| `loss` \| `other`, permanentes o con fin). |
+| `/admin/audit` | **Bitácora** con filtros por **grupo de acción** (préstamos, devoluciones, herramientas, sanciones, cuentas), **rango de fechas** y **paginación**; enlace a vista por **carné** (`/admin/audit/[cardKey]`). |
+| `/admin/profile` | Perfil del usuario autenticado: datos de cuenta, carné vinculado, estado bloqueado/activo, resumen de sanciones/préstamos y acceso a bitácora por carné. |
+| `/admin/metrics` | Redirige al ancla de métricas en el dashboard (`#metricas`). |
 
-| Área | Capacidades |
-|------|-------------|
-| Autenticación | Sesión Supabase Auth; perfil con rol (`student` / `staff` o similar); cierre de sesión |
-| Herramientas | Listar, obtener por id / código, CRUD admin |
-| Inventario | Estado por herramienta; altas admin |
-| Préstamos | Por estudiante; crear préstamo; registrar devolución |
-| Sanciones y alertas | Reglas configurables; notificaciones en UI (toasts / paneles) |
-| Auditoría | Inserción y consulta de bitácora desde servicios |
+**TopBar:** cierre de sesión, **tema claro/oscuro**, **campana de notificaciones** (notificaciones in-app de staff + estado de correos enviados vía outbox, unificadas en `/api/admin/notifications`).
+
+### Alertas, correo y trabajos programados
+
+- Trabajo **`POST /api/jobs/overdue`** (cabecera `x-cron-secret` = `CRON_SECRET`): marca préstamos vencidos como `overdue`, crea **alertas** `overdue` si no existen, encola **emails** a staff/admin (Resend) y crea **notificaciones in-app** enlazadas a préstamos.
+- El mismo endpoint puede **drenar la cola** `email_outbox` (envío de pendientes).
+- Script local: `npm run jobs:overdue` (ver `src/jobs/overdue.ts`).
+
+### Auditoría y cumplimiento
+
+- Tabla `audit_log` con acciones coherentes con el dominio (`BORROW`, `RETURN`, `LOAN_REQUESTED`, `LOAN_APPROVED`, `LOAN_DENIED`, CRUD herramientas/sanciones, `BAN_STUDENT`, etc.).
+- Consulta filtrada desde la UI de bitácora.
+
+### Autenticación y desarrollo
+
+- **Producción:** Auth0; claims de rol en `https://kite-hub.app/role` (`student` \| `staff` \| `admin`); usuario **upsert** en SQL Server por `auth0Sub`.
+- **Desarrollo:** `DEV_AUTH_BYPASS=true` (solo con `NODE_ENV=development`) omite Auth0 y usa sesión de admin de desarrollo; opcionalmente `DEV_SKIP_DB=true` para UI sin base de datos.
+- Comprobación de release: `npm run check:no-bypass-prod`.
+
+### Modelo de datos (Prisma / SQL Server)
+
+Entidades principales mapeadas en `prisma/schema.prisma`:
+
+- **users** — `auth0Sub`, `cardKey`, rol, `isBanned` / `banReason`.
+- **tools** + **inventory** — catálogo, cantidades y estado lógico de inventario.
+- **loans** — ciclo de vida incl. `requested`, aprobación, `active`, `returned`, `overdue`, etc.; `idempotencyKey`.
+- **sanctions**, **alerts**.
+- **audit_log**.
+- **staff_notifications**, **email_outbox**.
+- **tool_categories**, **tool_locations**.
+- **loan_rules** — reglas semilla en `prisma/seed.ts` (tabla lista para evolución; el **bloqueo efectivo** en kiosk usa **sanciones activas** y **ban**).
 
 ## Flujos de uso
 
-### Flujo de préstamo (estudiante)
+### Estudiante / mostrador (kiosk)
 
-1. Acercarse al estante con lector QR
-2. Escanear QR de la herramienta
-3. Escanear o ingresar carné
-4. El sistema registra el préstamo
-5. Feedback visual conforme al diseño (tokens, estados de éxito/error)
+1. Abrir `/kiosk` (móvil en la misma red o túnel HTTPS si iOS exige contexto seguro para la cámara).
+2. Escanear o teclear el identificador de la **herramienta**.
+3. Escanear o teclear el **carné** `KEY_XXXXXX`.
+4. Recibir confirmación de préstamo, solicitud pendiente, devolución o error (incl. bloqueo por sanción o veto).
 
-### Flujo de devolución (estudiante)
+### Encargado / administrador
 
-1. Acercarse al estante con lector QR
-2. Escanear el mismo QR de la herramienta
-3. El sistema detecta préstamo activo
-4. Registra devolución
-5. Confirmación de condición
-6. Estado actualizado a disponible
-
-### Flujo de gestión (administrador)
-
-1. Panel de control (layout sidebar/topbar coherente con la regla de diseño)
-2. Estadísticas en tiempo real
-3. CRUD de herramientas
-4. Revisión de alertas y atrasos
-5. Sanciones y reglas
-6. Reportes y auditoría
-
-## Reglas de sanciones (configurables)
-
-| Rango de atraso | Descripción      | ¿Puede prestar? |
-|-----------------|------------------|-----------------|
-| 1–2 días        | Atraso leve      | Sí              |
-| 3–5 días        | Atraso moderado  | No              |
-| 6–10 días       | Atraso severo    | No              |
-| +11 días        | Atraso crítico   | No              |
-
-## Seguridad
-
-- **Supabase Auth** y políticas **RLS** en tablas sensibles
-- **Control de roles** en capa datos y en rutas Next
-- **Validación de entrada** con Zod (formularios y payloads de API/Server Actions)
-- **Auditoría** de operaciones en tabla de bitácora
-- **Protección de rutas** App Router + comprobación de sesión
+1. Iniciar sesión vía Auth0 (`/api/auth/login?returnTo=/admin/dashboard`).
+2. Usar **Panel**, **Préstamos**, **Herramientas**, **Estudiantes**, **Sanciones** y **Bitácora** según el caso.
+3. Resolver solicitudes que requieran aprobación; registrar devoluciones o cancelaciones desde el panel si aplica.
 
 ## Instalación y configuración
 
-### Requisitos previos
+### Requisitos
 
-- Node.js 20+ (recomendado, alineado al stack Grow Hub)
-- Proyecto **Supabase** (URL + anon key; migraciones SQL o CLI según definas el esquema)
+- **Node.js 20+**
+- **SQL Server** accesible (local, Azure, Heroku MSSQL, etc.) y cadena **`DATABASE_URL`** en formato Prisma `sqlserver://…`
 
 ### Pasos
 
@@ -190,89 +120,83 @@ cd Kite-Hub-Projecct
 
 npm install
 
-cp .env.local.example .env.local
-# Completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY
+cp .env.example .env.local
+# Completa DATABASE_URL, Auth0, KIOSK_SECRET, NEXT_PUBLIC_KIOSK_KEY, CRON_SECRET, Resend (según entorno)
+
+npx prisma migrate deploy
+# o, en entornos de desarrollo sin migraciones previas:
+# npx prisma db push --schema prisma/schema.prisma
+
+npm run db:seed   # opcional: datos demo
 
 npm run dev
 ```
 
-### Variables de entorno
+Validar conectividad y tablas mínimas:
+
+```bash
+npm run db:test
+```
+
+### Variables de entorno (resumen)
+
+Copia desde **`.env.example`** (no commitees `.env.local`). Incluye, entre otras:
 
 | Variable | Uso |
 |----------|-----|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima (cliente) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor, si usas jobs/admin que bypassen RLS con cuidado |
+| `DATABASE_URL` | SQL Server (Prisma) |
+| `AUTH0_*` | Dominio, cliente, secreto, `AUTH0_BASE_URL` |
+| `KIOSK_SECRET` / `NEXT_PUBLIC_KIOSK_KEY` | API kiosk (deben coincidir en desarrollo) |
+| `CRON_SECRET` | Job de atrasos |
+| `RESEND_API_KEY` / `RESEND_FROM` | Correo transaccional |
+| `DEV_AUTH_BYPASS` | Solo desarrollo; nunca en producción |
 
-> No commitees `.env.local`.
-
-### Scripts
+### Scripts npm
 
 ```bash
-npm run dev      # Next.js con Turbopack
-npm run dev:local
-npm run build
-npm run start
+npm run dev              # Next en 0.0.0.0:3000
+npm run dev:local        # Next por defecto (localhost)
+npm run build            # prisma generate && next build
+npm run start            # producción (respeta PORT)
 npm run lint
+npm run typecheck
+npm run db:migrate       # prisma migrate deploy con .env.local
+npm run db:generate
+npm run db:studio
+npm run db:seed
+npm run db:test
+npm run jobs:overdue
+npm run email:test       # prueba Resend (script)
+npm run check:no-bypass-prod
 ```
 
-### Probar `kiosk` desde iPhone (misma LAN)
+## Probar el kiosk desde iPhone (misma LAN)
 
-1. Configura secretos de kiosk en `.env.local`:
-
-```env
-KIOSK_SECRET="dev-kiosk-secret-local"
-NEXT_PUBLIC_KIOSK_KEY="dev-kiosk-secret-local"
-```
-
-2. Inicia el servidor para red local:
-
-```bash
-npm run dev
-```
-
-3. Desde la PC, identifica tu IP LAN (ejemplo en Windows):
-
-```bash
-ipconfig
-```
-
-4. En iPhone (Safari), abre:
-   - `http://<IP_DE_TU_PC>:3000/kiosk`
-5. Permite acceso a la camara cuando Safari lo solicite y prueba:
-   - Escaneo de herramienta (QR 1)
-   - Escaneo de carne (QR 2)
-
-Si iOS bloquea el uso de camara por contexto no seguro, usa un tunel HTTPS:
-
-```bash
-# Opcion A: cloudflared
-cloudflared tunnel --url http://localhost:3000
-
-# Opcion B: ngrok
-ngrok http 3000
-```
-
-Abre la URL `https://...` que te entregue el tunel y repite la prueba en `/kiosk`.
+1. En `.env.local`, alinea `KIOSK_SECRET` y `NEXT_PUBLIC_KIOSK_KEY` (mismo valor en local para pruebas).
+2. `npm run dev` y anota la IP LAN de la PC (`ipconfig` en Windows).
+3. En Safari: `http://<IP>:3000/kiosk` y permite cámara.
+4. Si el navegador bloquea HTTP, usa **túnel HTTPS** (`cloudflared` o `ngrok`) y añade el origen a `allowedDevOrigins` en `next.config.ts` si hace falta.
 
 ## Testing
 
-Añade el runner que elijas (Vitest, Playwright, etc.) cuando el código base esté creado; el README de referencia Grow Hub no impone uno concreto.
+No hay suite de tests automatizados fija en el repo; puedes añadir Vitest, Playwright u otro runner según necesidad.
 
 ## Despliegue
 
-Compatible con hosting **Next.js** (p. ej. [Vercel](https://vercel.com)): mismas variables de entorno que en local. Supabase gestiona la base Postgres, backups y auth.
+Cualquier hosting compatible con **Next.js** (p. ej. Vercel, Node en VM, etc.): mismas variables que en local, **SQL Server** alcanzable desde el runtime, y **cron** o worker externo que invoque `POST /api/jobs/overdue` con `CRON_SECRET`.
 
-## Roadmap futuro
+## Diseño e interfaz (obligatorio en el repo)
 
-- [ ] Integración con Arduino para lectores QR automáticos
-- [ ] Notificaciones por email/SMS
-- [ ] App móvil nativa (React Native)
-- [ ] Identificación biométrica
-- [ ] Análisis predictivo de atrasos
-- [ ] Integración con inventarios externos
-- [ ] Exportación PDF/Excel
-- [ ] Dashboard en tiempo real con WebSockets
+- Tokens semánticos y **modo oscuro** (`next-themes` + clase `.dark`); ver `.cursor/rules/design-system.mdc`.
+- Colores de dominio: préstamos **blue**, inventario **emerald**, alertas/sanciones **purple**, admin **violet**.
+
+## Roadmap / extensiones posibles
+
+- Lectores QR dedicados (Arduino u otros).
+- Más canales de notificación (SMS, push).
+- App móvil nativa.
+- Informes exportables (PDF/Excel) desde el panel.
+- Tiempo real (WebSockets) para tableros en vivo.
 
 ## Soporte y contribuciones
 
@@ -285,6 +209,6 @@ Proyecto académico (Programación Orientada a Objetos) sujeto a los términos d
 ---
 
 **Versión:** 1.0.0  
-**Última actualización:** abril 2026  
+**Última actualización:** mayo 2026  
 **Laboratorio:** KITE  
-**Identidad visual:** plantilla Grow Hub (tokens, componentes) aplicada a Kite Hub — `.cursor/rules/design-system.mdc`
+**Identidad visual:** plantilla Grow Hub aplicada a Kite Hub — `.cursor/rules/design-system.mdc`
