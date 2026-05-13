@@ -38,9 +38,10 @@ function loadDotEnv(files: string[]) {
 
 async function main() {
   loadDotEnv([".env.local", ".env"]);
-  const { buildResendTestEmailPayload, getRequiredResendApiKey, resend } =
+  const { buildResendTestEmailPayload, getRequiredResendApiKey, getResend } =
     await import("../src/lib/resend");
   getRequiredResendApiKey();
+  const resend = getResend();
 
   const toEmail = process.argv[2] ?? DEFAULT_TO_EMAIL;
   const subjectFromArg = process.argv[3];
@@ -57,7 +58,6 @@ async function main() {
     result.error.name === "validation_error" &&
     /domain is not verified/i.test(result.error.message)
   ) {
-    // Fallback de desarrollo para cuentas sin dominio verificado en Resend.
     result = await resend.emails.send({
       ...payload,
       from: "onboarding@resend.dev",

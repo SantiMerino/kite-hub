@@ -2,7 +2,7 @@ import {
   buildLoanApprovedEmailHtml,
   buildLoanRequestedEmailHtml,
   FROM_EMAIL,
-  resend,
+  getResend,
 } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
 
@@ -87,7 +87,7 @@ export async function notifyLoanRequestedByEmail(payload: LoanApprovalNotificati
   for (const u of adminUsers) {
     if (!u.email) continue;
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: u.email,
         subject,
@@ -139,7 +139,7 @@ export async function notifyLoanApprovedByEmail(payload: LoanApprovalNotificatio
 
   for (const [email, userId] of targets) {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: email,
         subject,

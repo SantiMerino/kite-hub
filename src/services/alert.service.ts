@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { resend, FROM_EMAIL, buildOverdueEmailHtml } from "@/lib/resend";
+import { getResend, FROM_EMAIL, buildOverdueEmailHtml } from "@/lib/resend";
 import { daysOverdue } from "@/lib/utils";
 
 /**
@@ -115,7 +115,7 @@ export async function drainEmailOutbox(limit = 50): Promise<{ sent: number; fail
 
   for (const item of pending) {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: item.toEmail,
         subject: item.subject,

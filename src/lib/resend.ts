@@ -1,7 +1,5 @@
 import { Resend } from "resend";
 
-export const resend = new Resend(process.env.RESEND_API_KEY);
-
 export const FROM_EMAIL =
   process.env.RESEND_FROM ?? "Kite Hub <noreply@kite-hub.app>";
 
@@ -13,6 +11,24 @@ export function getRequiredResendApiKey(): string {
     );
   }
   return apiKey;
+}
+
+let cachedResend: Resend | null = null;
+
+/**
+ * Lazy accessor for the Resend client.
+ *
+ * The Resend constructor throws synchronously when the API key is missing, so
+ * eagerly instantiating it at module load breaks Vercel/Next.js build-time page
+ * data collection in environments where `RESEND_API_KEY` is intentionally not
+ * exposed (e.g. preview builds without secrets). Resolving the client on first
+ * use keeps the failure scoped to actual send attempts, which already run
+ * inside try/catch blocks at the service layer.
+ */
+export function getResend(): Resend {
+  if (cachedResend) return cachedResend;
+  cachedResend = new Resend(getRequiredResendApiKey());
+  return cachedResend;
 }
 
 export interface ResendTestEmailPayload {
