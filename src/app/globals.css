@@ -171,4 +171,19 @@
   .skeleton {
     @apply animate-pulse rounded-md bg-muted;
   }
+
+  /* ─── Raspberry Pi 5" DSI display ─────────────────────────────────────────
+   * Oculta elementos que no aplican en ese hardware específico (p. ej. botones
+   * de cámara cuando el dispositivo no tiene módulo de cámara). Se restringe a
+   * dos resoluciones físicas conocidas + (pointer: coarse) para no afectar a
+   * monitores externos ni a otros dispositivos con anchos cercanos.
+   *   - Landscape: 800×480 (común en 5" DSI para RPi)
+   *   - Portrait:  720×1280 (variante 5" DSI vertical)
+   */
+  @media (pointer: coarse) and (min-width: 760px) and (max-width: 820px) and (min-height: 440px) and (max-height: 500px) {
+    .dsi-hide { display: none !important; }
+  }
+  @media (pointer: coarse) and (min-width: 700px) and (max-width: 740px) and (min-height: 1240px) and (max-height: 1300px) {
+    .dsi-hide { display: none !important; }
+  }
 }
