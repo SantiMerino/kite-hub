@@ -99,10 +99,12 @@ sleep 3 && WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1001 chromium \
   --disable-restore-session-state \
   --start-fullscreen \
   --touch-events=enabled \
+  --password-store=basic \
   "https://unscotched-kenley-nonvituperatively.ngrok-free.dev/kiosk/dsi" &
 ```
 
 > Se usa `--start-fullscreen` (no `--kiosk`) para permitir salir con `F11`.
+> `--password-store=basic` evita que Chromium abra el GNOME Keyring en cada reboot.
 > `sleep 3` da tiempo al compositor y al panel de inicializarse antes de abrir Chromium.
 
 ### Modificar el autostart
@@ -135,6 +137,7 @@ sleep 3 && WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1001 chromium \
   --disable-restore-session-state \
   --start-fullscreen \
   --touch-events=enabled \
+  --password-store=basic \
   "https://unscotched-kenley-nonvituperatively.ngrok-free.dev/kiosk/dsi" &
 EOF
 cat ~/.config/labwc/autostart
