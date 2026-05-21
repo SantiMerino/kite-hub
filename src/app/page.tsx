@@ -1,12 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth0 } from "@/lib/auth0";
 
-export default async function HomePage() {
-  const session = await auth0.getSession();
-
-  if (session?.user) {
-    redirect("/admin/dashboard");
-  }
-
+/** Punto de entrada: superficie kiosk para préstamos en estación. */
+export default function HomePage() {
   redirect("/kiosk");
 }

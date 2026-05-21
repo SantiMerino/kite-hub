@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import KioskScanner from "@/components/kiosk/KioskScanner";
 import ThemeToggle from "@/components/theme/theme-toggle";
-import { FlaskConical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FlaskConical, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Kiosk",
@@ -36,12 +38,13 @@ export default function KioskPage() {
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <ThemeToggle />
-          <a
-            href="/api/auth/login?returnTo=/admin/dashboard"
-            className="text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground sm:text-xs whitespace-nowrap"
-          >
-            Staff →
-          </a>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" asChild>
+            <Link href="/admin/login?returnTo=/admin/dashboard">
+              <Shield className="size-3.5 text-violet-600 dark:text-violet-400" aria-hidden />
+              <span className="hidden sm:inline">Administración</span>
+              <span className="sm:hidden">Admin</span>
+            </Link>
+          </Button>
         </div>
       </header>
 

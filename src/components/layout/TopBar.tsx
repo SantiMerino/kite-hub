@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth0 } from "@/lib/auth0";
 import { getAuthUser } from "@/lib/auth";
 import { LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,8 +14,7 @@ import { countUnreadNotifications } from "@/services/notification.service";
 const HAS_DATABASE_URL = Boolean(process.env.DATABASE_URL);
 
 export default async function TopBar({ title }: { title?: string }) {
-  const session = await auth0.getSession();
-  const user = session ? await getAuthUser() : null;
+  const user = await getAuthUser();
 
   const unreadCount = user
     ? isDevAuthBypassEnabled()
@@ -62,11 +60,12 @@ export default async function TopBar({ title }: { title?: string }) {
           </div>
         )}
 
-        <Link href="/api/auth/logout">
-          <Button variant="ghost" size="icon">
+        <form action="/api/auth/admin/logout" method="POST">
+          <Button variant="ghost" size="icon" type="submit">
             <LogOut className="size-4" />
+            <span className="sr-only">Cerrar sesión</span>
           </Button>
-        </Link>
+        </form>
       </div>
     </header>
   );
