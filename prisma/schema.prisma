@@ -284,3 +284,18 @@ model LoanRule {
 
   @@map("loan_rules")
 }
+
+// ─── Admin OTP login (email one-time code via Resend) ─────────────────────────
+
+model AdminLoginOtp {
+  id         Int      @id @default(autoincrement())
+  email      String   @db.NVarChar(320)
+  codeHash   String   @db.NVarChar(128)
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  resendCount Int     @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@map("admin_login_otps")
+}
