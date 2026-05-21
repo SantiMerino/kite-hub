@@ -53,7 +53,7 @@ Use `requireRole(["admin"])` for destructive or sensitive operations (DELETE, ba
 
 ## 4. Dev auth bypass rules
 
-- Bypass logic lives **only** in `src/lib/dev-bypass.ts`, `src/lib/auth0.ts`, and `src/lib/auth.ts`.
+- Bypass logic lives **only** in `src/lib/dev-bypass.ts`, `src/lib/admin-session.ts`, and `src/lib/auth.ts`.
 - **Never** add ad-hoc bypass logic (e.g., `if (process.env.NODE_ENV === "development") skip...`) inside pages or route handlers.
 - `isDevAuthBypassEnabled()` already throws if `DEV_AUTH_BYPASS=true` outside `development`. Do not suppress or work around this.
 - Do **not** import `dev-bypass.ts` in new client components.
@@ -76,5 +76,5 @@ Before deploying to production, verify:
 
 - [ ] `DEV_AUTH_BYPASS` is **not** set in the production environment.
 - [ ] `npm run check:no-bypass-prod` passes with exit code 0.
-- [ ] Real Auth0 credentials (`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_BASE_URL`, `AUTH0_SECRET`) are configured.
-- [ ] Login flow tested end-to-end with a real Auth0 user.
+- [ ] `ADMIN_SESSION_SECRET` (min 32 chars) and `RESEND_API_KEY` are configured.
+- [ ] Admin OTP login tested end-to-end with a staff/admin user email in the DB.

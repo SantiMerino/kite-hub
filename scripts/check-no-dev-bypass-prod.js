@@ -51,20 +51,15 @@ if (process.env.NODE_ENV === "development") {
   );
 }
 
-// 4. Ensure real Auth0 credentials are present (when not in development).
+// 4. Ensure admin session secret is present (when not in development).
 if (process.env.NODE_ENV !== "development") {
-  const requiredAuth0 = [
-    "AUTH0_SECRET",
-    "AUTH0_BASE_URL",
-    "AUTH0_DOMAIN",
-    "AUTH0_CLIENT_ID",
-    "AUTH0_CLIENT_SECRET",
-  ];
-  const missing = requiredAuth0.filter((v) => !process.env[v]);
-  if (missing.length > 0) {
-    fail(`Missing required Auth0 environment variables: ${missing.join(", ")}`);
+  const secret = process.env.ADMIN_SESSION_SECRET?.trim() ?? "";
+  if (secret.length < 32) {
+    fail(
+      "ADMIN_SESSION_SECRET must be set (min 32 chars) for production admin OTP sessions.",
+    );
   } else {
-    ok("All required Auth0 environment variables are present.");
+    ok("ADMIN_SESSION_SECRET is configured.");
   }
 }
 
