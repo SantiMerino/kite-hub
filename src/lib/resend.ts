@@ -160,6 +160,44 @@ export function buildLoanRequestedEmailHtml(p: LoanApprovalEmailPayload): string
   `.trim();
 }
 
+export interface AdminOtpEmailPayload {
+  code: string;
+  expiresMinutes: number;
+  recipientName?: string;
+}
+
+export function buildAdminOtpEmailHtml(p: AdminOtpEmailPayload): string {
+  const greeting = p.recipientName
+    ? `Hola, <strong>${p.recipientName}</strong>.`
+    : "Hola.";
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>Acceso administrativo — Kite Hub</title></head>
+<body style="font-family:sans-serif;background:#f4f4f5;margin:0;padding:24px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+    <tr>
+      <td style="background:#5b21b6;padding:20px 24px;color:#fff;">
+        <h1 style="margin:0;font-size:20px;">Kite Hub</h1>
+        <p style="margin:8px 0 0;font-size:14px;opacity:.9;">Acceso al panel administrativo</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:24px;color:#27272a;font-size:15px;line-height:1.5;">
+        <p style="margin-top:0;">${greeting}</p>
+        <p>Tu código de verificación es:</p>
+        <p style="font-size:32px;font-weight:700;letter-spacing:0.35em;text-align:center;color:#5b21b6;margin:24px 0;">${p.code}</p>
+        <p style="margin-bottom:0;color:#71717a;font-size:14px;">
+          Válido por ${p.expiresMinutes} minutos. Si no solicitaste este acceso, ignora este correo.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 export function buildOverdueEmailHtml(p: OverdueEmailPayload): string {
   return `
 <!DOCTYPE html>

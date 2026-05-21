@@ -1,5 +1,5 @@
 /**
- * Centralized dev-only flags for Auth0 bypass and optional DB-free UI.
+ * Centralized dev-only flags for admin auth bypass and optional DB-free UI.
  *
  * PRODUCTION SAFETY: this module only activates in NODE_ENV=development.
  * Any attempt to enable the bypass outside of development throws at startup.
@@ -8,7 +8,6 @@
 export function isDevAuthBypassEnabled(): boolean {
   const isDev = process.env.NODE_ENV === "development";
 
-  // Hard kill-switch: bypass must never run in production or staging.
   if (!isDev) {
     if (process.env.DEV_AUTH_BYPASS === "true") {
       throw new Error(
@@ -19,16 +18,14 @@ export function isDevAuthBypassEnabled(): boolean {
     return false;
   }
 
-  const hasAuth0Env =
-    Boolean(process.env.AUTH0_DOMAIN) &&
-    Boolean(process.env.AUTH0_CLIENT_ID) &&
-    Boolean(process.env.AUTH0_CLIENT_SECRET) &&
-    Boolean(process.env.AUTH0_BASE_URL) &&
-    Boolean(process.env.AUTH0_SECRET);
+  const hasAdminSessionSecret = Boolean(
+    process.env.ADMIN_SESSION_SECRET?.trim() &&
+      process.env.ADMIN_SESSION_SECRET.trim().length >= 32,
+  );
 
   return (
     process.env.DEV_AUTH_BYPASS === "true" ||
-    (process.env.DEV_AUTH_BYPASS !== "false" && !hasAuth0Env)
+    (process.env.DEV_AUTH_BYPASS !== "false" && !hasAdminSessionSecret)
   );
 }
 
@@ -53,11 +50,6 @@ export function isRecoverableDevDbError(error: unknown): boolean {
   );
 }
 
-/**
- * When auth bypass is on in development, avoid crashing the UI if DATABASE_URL
- * is wrong or SQL Server is down. Returns `fallback` without calling `fn` when
- * DEV_SKIP_DB is set or DATABASE_URL is missing.
- */
 export async function withDevDatabaseFallback<T>(
   fn: () => Promise<T>,
   fallback: T,
